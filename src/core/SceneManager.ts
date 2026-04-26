@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { PlayerController } from '../gameplay/player/PlayerController';
+import { InteractionManager } from './InteractionManager';
+import { TerminalUI } from '../ui/TerminalUI';
 
 export class SceneManager {
   private readonly container: HTMLElement;
@@ -8,6 +10,8 @@ export class SceneManager {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly clock: THREE.Clock;
   private readonly playerController: PlayerController;
+  private readonly interactionManager: InteractionManager;
+  private readonly terminalUI: TerminalUI;
   private readonly interactables: THREE.Object3D[] = [];
 
   private animationFrameId: number | null = null;
@@ -48,6 +52,9 @@ export class SceneManager {
       interactables: this.interactables,
     });
 
+    this.interactionManager = new InteractionManager();
+    this.terminalUI = new TerminalUI();
+
     window.addEventListener('resize', this.onResize);
   }
 
@@ -68,6 +75,8 @@ export class SceneManager {
 
     window.removeEventListener('resize', this.onResize);
     this.playerController.dispose();
+    this.interactionManager.dispose();
+    this.terminalUI.dispose();
     this.renderer.dispose();
   }
 

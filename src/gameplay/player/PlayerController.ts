@@ -128,20 +128,31 @@ export class PlayerController {
     const intersections = this.raycaster.intersectObjects(this.interactables, true);
 
     if (intersections.length === 0) {
-      this.currentTarget = null;
+      if (this.currentTarget !== null) {
+        this.currentTarget = null;
+        window.dispatchEvent(new CustomEvent('poiBlur'));
+      }
       return;
     }
 
     const firstInteractiveObject = this.findInteractiveAncestor(intersections[0].object);
 
-    if (firstInteractiveObject === null || firstInteractiveObject === this.currentTarget) {
+    if (firstInteractiveObject === null) {
+      if (this.currentTarget !== null) {
+        this.currentTarget = null;
+        window.dispatchEvent(new CustomEvent('poiBlur'));
+      }
+      return;
+    }
+
+    if (firstInteractiveObject === this.currentTarget) {
       return;
     }
 
     this.currentTarget = firstInteractiveObject;
 
     const poiId = String(this.currentTarget.userData.poiId ?? this.currentTarget.name ?? 'unknown-poi');
-    console.log(`[Raycaster] Apuntando a POI: ${poiId}`);
+    window.dispatchEvent(new CustomEvent('poiFocus', { detail: { poiId } }));
   }
 
   private findInteractiveAncestor(object: THREE.Object3D): THREE.Object3D | null {

@@ -94,6 +94,128 @@ body,
   height: 14px;
 }
 
+#poi-tooltip {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  text-align: center;
+  color: #d7e8ff;
+  background: rgba(6, 16, 30, 0.72);
+  border: 1px solid rgba(155, 255, 79, 0.45);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  padding: 0.75rem 1.4rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#poi-tooltip.visible {
+  opacity: 1;
+}
+
+#poi-tooltip .poi-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #9bff4f;
+}
+
+#poi-tooltip .poi-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: #a8c0e0;
+}
+
+#terminal-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.78);
+  align-items: center;
+  justify-content: center;
+}
+
+#terminal-overlay.visible {
+  display: flex;
+}
+
+#terminal-panel {
+  width: min(680px, 90vw);
+  height: min(420px, 80vh);
+  background: #0d1117;
+  border: 1px solid #4af626;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Courier New', Courier, monospace;
+  color: #4af626;
+  box-shadow: 0 0 32px rgba(74, 246, 38, 0.18);
+  overflow: hidden;
+}
+
+#terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  background: #161b22;
+  border-bottom: 1px solid #4af62640;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+#terminal-header .terminal-title {
+  opacity: 0.9;
+}
+
+#terminal-header .terminal-close-hint {
+  opacity: 0.45;
+  font-size: 0.72rem;
+}
+
+#terminal-body {
+  flex: 1;
+  padding: 0.75rem 0.9rem;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  scrollbar-width: thin;
+  scrollbar-color: #4af62640 transparent;
+}
+
+#terminal-footer {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid #4af62640;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+#terminal-footer .terminal-prompt {
+  opacity: 0.6;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+#terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #4af626;
+  font-family: inherit;
+  font-size: 0.85rem;
+  caret-color: #4af626;
+}
+
 @media (max-width: 700px) {
   #hud {
     width: calc(100% - 1.2rem);
