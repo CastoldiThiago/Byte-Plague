@@ -2,19 +2,32 @@ import * as THREE from 'three';
 import { PlayerController } from '../gameplay/player/PlayerController';
 import { InteractionManager } from './InteractionManager';
 import { TerminalUI } from '../ui/TerminalUI';
+import { GameStateManager } from './GameStateManager';
+import { AntivirusAgent } from '../gameplay/AntivirusAgent';
+import { AudioManager } from './AudioManager';
 
 export class SceneManager {
   private readonly container: HTMLElement;
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
   private readonly renderer: THREE.WebGLRenderer;
-  private readonly clock: THREE.Clock;
+  private readonly timer: THREE.Timer;
   private readonly playerController: PlayerController;
   private readonly interactionManager: InteractionManager;
   private readonly terminalUI: TerminalUI;
+  private readonly antivirusAgent: AntivirusAgent;
+  private readonly audioManager: AudioManager;
   private readonly interactables: THREE.Object3D[] = [];
+  private readonly obstacles: THREE.Object3D[] = [];
 
   private animationFrameId: number | null = null;
+
+  private readonly onGameOver = (): void => {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  };
 
   public constructor(container: HTMLElement) {
     this.container = container;
@@ -35,12 +48,12 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.container.appendChild(this.renderer.domElement);
 
-    this.clock = new THREE.Clock();
+    this.timer = new THREE.Timer();
 
     this.setupLights();
     this.setupWorld();
@@ -54,8 +67,12 @@ export class SceneManager {
 
     this.interactionManager = new InteractionManager();
     this.terminalUI = new TerminalUI();
+    this.audioManager = new AudioManager(this.camera);
+    this.antivirusAgent = new AntivirusAgent(this.scene, this.camera, this.obstacles, this.audioManager.audioListener);
 
+    GameStateManager.getInstance();
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('gameOver', this.onGameOver);
   }
 
   public start(): void {
@@ -63,7 +80,6 @@ export class SceneManager {
       return;
     }
 
-    this.clock.start();
     this.animate();
   }
 
@@ -74,6 +90,9 @@ export class SceneManager {
     }
 
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('gameOver', this.onGameOver);
+    this.antivirusAgent.dispose();
+    this.audioManager.dispose();
     this.playerController.dispose();
     this.interactionManager.dispose();
     this.terminalUI.dispose();
@@ -81,9 +100,12 @@ export class SceneManager {
   }
 
   private readonly animate = (): void => {
-    const deltaTime = this.clock.getDelta();
+    this.timer.update();
+    const deltaTime = this.timer.getDelta();
 
     this.playerController.update(deltaTime);
+    this.antivirusAgent.update(deltaTime);
+    this.audioManager.update();
     this.renderer.render(this.scene, this.camera);
 
     this.animationFrameId = requestAnimationFrame(this.animate);
@@ -133,6 +155,7 @@ export class SceneManager {
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     this.scene.add(floor);
+    this.obstacles.push(floor);
 
     const wallMaterial = new THREE.MeshStandardMaterial({
       color: 0x3d5a80,
@@ -146,6 +169,7 @@ export class SceneManager {
       block.castShadow = true;
       block.receiveShadow = true;
       this.scene.add(block);
+      this.obstacles.push(block);
     }
 
     const poiMaterial = new THREE.MeshStandardMaterial({
@@ -163,5 +187,47 @@ export class SceneManager {
 
     this.scene.add(poi);
     this.interactables.push(poi);
+
+    // --- red interna: right-side network zone ---
+    const networkBlockMaterial = new THREE.MeshStandardMaterial({
+      color: 0x0d1f3c,
+      roughness: 0.7,
+      metalness: 0.3,
+    });
+
+    for (const x of [16, 20, 24]) {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 2), networkBlockMaterial);
+      block.position.set(x, 1.5, -6);
+      block.castShadow = true;
+      block.receiveShadow = true;
+      this.scene.add(block);
+      this.obstacles.push(block);
+    }
+
+    const networkLight = new THREE.PointLight(0x0066ff, 2, 14);
+    networkLight.position.set(20, 4, -3);
+    this.scene.add(networkLight);
+
+    const networkPoiMaterial = new THREE.MeshStandardMaterial({
+      color: 0x00d4ff,
+      emissive: 0x002244,
+      roughness: 0.3,
+      metalness: 0.4,
+    });
+
+    const networkPois = [
+      { poiId: 'terminal-red-scan',    x: 16 },
+      { poiId: 'terminal-ssh-connect', x: 24 },
+    ];
+
+    for (const def of networkPois) {
+      const networkPoi = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), networkPoiMaterial);
+      networkPoi.position.set(def.x, 1, -4);
+      networkPoi.castShadow = true;
+      networkPoi.userData.interactive = true;
+      networkPoi.userData.poiId = def.poiId;
+      this.scene.add(networkPoi);
+      this.interactables.push(networkPoi);
+    }
   }
 }

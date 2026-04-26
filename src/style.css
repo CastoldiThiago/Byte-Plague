@@ -60,6 +60,30 @@ body,
   margin-top: 0.2rem;
 }
 
+#alert-bar-track {
+  width: 180px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  margin: 0.55rem auto 0;
+  overflow: hidden;
+}
+
+#alert-bar-fill {
+  height: 100%;
+  width: 0%;
+  background-color: hsl(120, 85%, 45%);
+  border-radius: 3px;
+  transition: width 0.45s ease, background-color 0.45s ease;
+}
+
+#alert-status {
+  margin-top: 0.3rem !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.07em !important;
+  color: #9bff4f;
+}
+
 #crosshair {
   position: absolute;
   top: 50%;
@@ -214,6 +238,14 @@ body,
   font-family: inherit;
   font-size: 0.85rem;
   caret-color: #4af626;
+}
+
+.terminal-line--success {
+  color: #c8edc8;
+}
+
+.terminal-line--error {
+  color: #ff6b6b;
 }
 
 @media (max-width: 700px) {

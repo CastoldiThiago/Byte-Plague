@@ -1,9 +1,14 @@
+import { CommandEngine } from '../gameplay/CommandEngine';
+import { GameStateManager } from '../core/GameStateManager';
+
 export class TerminalUI {
   private readonly overlay: HTMLElement;
   private readonly titleEl: HTMLElement;
   private readonly bodyEl: HTMLElement;
   private readonly inputEl: HTMLInputElement;
+  private readonly commandEngine = new CommandEngine();
   private isVisible = false;
+  private currentPoiId = '';
 
   public constructor() {
     const { overlay, title, body, input } = this.createElement();
@@ -25,6 +30,7 @@ export class TerminalUI {
   }
 
   private open(poiId: string): void {
+    this.currentPoiId = poiId;
     this.titleEl.textContent = poiId;
     this.bodyEl.innerHTML = '';
     this.isVisible = true;
@@ -96,11 +102,18 @@ export class TerminalUI {
     return { overlay, title, body, input };
   }
 
-  private appendLine(text: string): void {
+  private appendLine(text: string, type?: 'success' | 'error'): void {
     const line = document.createElement('div');
+    line.className = type !== undefined ? `terminal-line--${type}` : '';
     line.textContent = text;
     this.bodyEl.appendChild(line);
     this.bodyEl.scrollTop = this.bodyEl.scrollHeight;
+  }
+
+  private appendLines(text: string, type?: 'success' | 'error'): void {
+    for (const line of text.split('\n')) {
+      this.appendLine(line, type);
+    }
   }
 
   private readonly onPoiInteract = (event: Event): void => {
@@ -125,5 +138,15 @@ export class TerminalUI {
     this.appendLine(`> ${value}`);
     this.inputEl.value = '';
     event.stopPropagation();
+
+    const result = this.commandEngine.process(value, this.currentPoiId);
+    this.appendLines(result.feedback, result.success ? 'success' : 'error');
+
+    if (result.objectiveId !== undefined) {
+      GameStateManager.getInstance().completeObjective(result.objectiveId);
+      window.dispatchEvent(new CustomEvent('commandSuccess'));
+    } else if (!result.success) {
+      window.dispatchEvent(new CustomEvent('commandFail'));
+    }
   };
 }
