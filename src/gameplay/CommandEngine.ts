@@ -89,6 +89,71 @@ const POI_COMMANDS: Readonly<Record<string, PoiConfig | undefined>> = {
     },
   },
 
+  'archivo-1': {
+    label: 'Archivo 1',
+    commands: {
+      'ls': { output: 'archivo1.dat  metadata.txt', description: 'lista el directorio' },
+      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
+      'openssl enc -aes-256-cbc -in archivo1': {
+        output: 'Cifrando archivo1.dat con AES-256-CBC...\n[OK] archivo1.dat.enc generado — clave guardada en .key',
+        description: 'cifra archivo1.dat con AES-256 en modo CBC',
+        objectiveId: 'cifrado-1',
+      },
+    },
+  },
+
+  'archivo-2': {
+    label: 'Archivo 2',
+    commands: {
+      'ls': { output: 'archivo2.dat  metadata.txt', description: 'lista el directorio' },
+      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
+      'openssl enc -aes-256-cbc -in archivo2': {
+        output: 'Cifrando archivo2.dat con AES-256-CBC...\n[OK] archivo2.dat.enc generado — clave guardada en .key',
+        description: 'cifra archivo2.dat con AES-256 en modo CBC',
+        objectiveId: 'cifrado-2',
+      },
+    },
+  },
+
+  'archivo-3': {
+    label: 'Archivo 3',
+    commands: {
+      'ls': { output: 'archivo3.dat  metadata.txt', description: 'lista el directorio' },
+      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
+      'openssl enc -aes-256-cbc -in archivo3': {
+        output: 'Cifrando archivo3.dat con AES-256-CBC...\n[OK] archivo3.dat.enc generado — clave guardada en .key',
+        description: 'cifra archivo3.dat con AES-256 en modo CBC',
+        objectiveId: 'cifrado-3',
+      },
+    },
+  },
+
+  'archivo-4': {
+    label: 'Archivo 4',
+    commands: {
+      'ls': { output: 'archivo4.dat  metadata.txt', description: 'lista el directorio' },
+      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
+      'openssl enc -aes-256-cbc -in archivo4': {
+        output: 'Cifrando archivo4.dat con AES-256-CBC...\n[OK] archivo4.dat.enc generado — clave guardada en .key',
+        description: 'cifra archivo4.dat con AES-256 en modo CBC',
+        objectiveId: 'cifrado-4',
+      },
+    },
+  },
+
+  'archivo-5': {
+    label: 'Archivo 5',
+    commands: {
+      'ls': { output: 'archivo5.dat  metadata.txt', description: 'lista el directorio' },
+      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
+      'openssl enc -aes-256-cbc -in archivo5': {
+        output: 'Cifrando archivo5.dat con AES-256-CBC...\n[OK] archivo5.dat.enc generado — clave guardada en .key',
+        description: 'cifra archivo5.dat con AES-256 en modo CBC',
+        objectiveId: 'cifrado-5',
+      },
+    },
+  },
+
   'terminal-inicio': {
     label: 'Terminal de Inicio',
     commands: {

@@ -5,6 +5,9 @@ import { TerminalUI } from '../ui/TerminalUI';
 import { GameStateManager } from './GameStateManager';
 import { AntivirusAgent } from '../gameplay/AntivirusAgent';
 import { AudioManager } from './AudioManager';
+import { NarrativeScreen } from '../ui/NarrativeScreen';
+import { GlitchMaterial } from '../shaders/GlitchMaterial';
+import { DataParticles } from '../effects/DataParticles';
 
 export class SceneManager {
   private readonly container: HTMLElement;
@@ -15,11 +18,15 @@ export class SceneManager {
   private readonly playerController: PlayerController;
   private readonly interactionManager: InteractionManager;
   private readonly terminalUI: TerminalUI;
+  private readonly narrativeScreen: NarrativeScreen;
   private readonly antivirusAgent: AntivirusAgent;
   private readonly audioManager: AudioManager;
   private readonly interactables: THREE.Object3D[] = [];
   private readonly obstacles: THREE.Object3D[] = [];
 
+  private readonly archivoMeshes = new Map<string, THREE.Mesh>();
+  private readonly glitchMaterials: GlitchMaterial[] = [];
+  private readonly dataParticles: DataParticles;
   private animationFrameId: number | null = null;
 
   private readonly onGameOver = (): void => {
@@ -57,6 +64,7 @@ export class SceneManager {
 
     this.setupLights();
     this.setupWorld();
+    this.dataParticles = new DataParticles(this.scene);
 
     this.playerController = new PlayerController({
       camera: this.camera,
@@ -67,12 +75,14 @@ export class SceneManager {
 
     this.interactionManager = new InteractionManager();
     this.terminalUI = new TerminalUI();
+    this.narrativeScreen = new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
     this.antivirusAgent = new AntivirusAgent(this.scene, this.camera, this.obstacles, this.audioManager.audioListener);
 
     GameStateManager.getInstance();
     window.addEventListener('resize', this.onResize);
     window.addEventListener('gameOver', this.onGameOver);
+    window.addEventListener('archivoCifrado', this.onArchivoCifrado);
   }
 
   public start(): void {
@@ -91,24 +101,46 @@ export class SceneManager {
 
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('gameOver', this.onGameOver);
+    window.removeEventListener('archivoCifrado', this.onArchivoCifrado);
     this.antivirusAgent.dispose();
     this.audioManager.dispose();
     this.playerController.dispose();
     this.interactionManager.dispose();
     this.terminalUI.dispose();
+    this.narrativeScreen.dispose();
+    this.dataParticles.dispose();
+    for (const mat of this.glitchMaterials) mat.dispose();
     this.renderer.dispose();
   }
 
   private readonly animate = (): void => {
     this.timer.update();
     const deltaTime = this.timer.getDelta();
+    const elapsed   = this.timer.getElapsed();
 
     this.playerController.update(deltaTime);
     this.antivirusAgent.update(deltaTime);
     this.audioManager.update();
+    this.dataParticles.update(deltaTime);
+
+    for (const mat of this.glitchMaterials) {
+      mat.update(elapsed);
+    }
+
     this.renderer.render(this.scene, this.camera);
 
     this.animationFrameId = requestAnimationFrame(this.animate);
+  };
+
+  private readonly onArchivoCifrado = (event: Event): void => {
+    const { objectiveId } = (event as CustomEvent<{ objectiveId: string }>).detail;
+    const poiId = objectiveId.replace('cifrado-', 'archivo-');
+    const mesh = this.archivoMeshes.get(poiId);
+    if (mesh === undefined) return;
+    (mesh.material as THREE.Material).dispose();
+    const glitchMat = new GlitchMaterial();
+    mesh.material = glitchMat;
+    this.glitchMaterials.push(glitchMat);
   };
 
   private readonly onResize = (): void => {
@@ -228,6 +260,30 @@ export class SceneManager {
       networkPoi.userData.poiId = def.poiId;
       this.scene.add(networkPoi);
       this.interactables.push(networkPoi);
+    }
+
+    // --- sala de archivos ---
+    const archivoLight = new THREE.PointLight(0x00ff88, 2, 16);
+    archivoLight.position.set(0, 4, -22);
+    this.scene.add(archivoLight);
+
+    const archivoXPositions = [-8, -4, 0, 4, 8];
+    for (let i = 0; i < 5; i += 1) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x00ff88,
+        emissive: 0x003322,
+        roughness: 0.3,
+        metalness: 0.2,
+      });
+      const poiId = `archivo-${i + 1}`;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+      mesh.position.set(archivoXPositions[i]!, 0.5, -22);
+      mesh.castShadow = true;
+      mesh.userData.interactive = true;
+      mesh.userData.poiId = poiId;
+      this.scene.add(mesh);
+      this.interactables.push(mesh);
+      this.archivoMeshes.set(poiId, mesh);
     }
   }
 }

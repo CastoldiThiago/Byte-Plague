@@ -17,6 +17,7 @@ app.innerHTML = `
       <div id="alert-bar-fill"></div>
     </div>
     <p id="alert-status">Sistema en reposo</p>
+    <p id="timer-display">TIEMPO: 02:00</p>
   </div>
   <div id="crosshair" aria-hidden="true"></div>
 `;
@@ -24,12 +25,15 @@ app.innerHTML = `
 const gameRoot = document.querySelector<HTMLDivElement>('#game-root')!;
 const alertFill = document.querySelector<HTMLDivElement>('#alert-bar-fill')!;
 const alertStatus = document.querySelector<HTMLParagraphElement>('#alert-status')!;
+const timerDisplay = document.querySelector<HTMLParagraphElement>('#timer-display')!;
 
 const sceneManager = new SceneManager(gameRoot);
 sceneManager.start();
 
 const intervalId = setInterval((): void => {
-  const level = GameStateManager.getInstance().alertLevel;
+  const state = GameStateManager.getInstance();
+
+  const level = state.alertLevel;
   const hue = Math.round(120 - (level / 100) * 120);
 
   alertFill.style.width = `${level}%`;
@@ -45,6 +49,12 @@ const intervalId = setInterval((): void => {
     alertStatus.textContent = 'Alerta crítica';
     alertStatus.style.color = '#ff6b6b';
   }
+
+  const secs = state.timerSeconds;
+  const min = Math.floor(secs / 60).toString().padStart(2, '0');
+  const sec = (secs % 60).toString().padStart(2, '0');
+  timerDisplay.textContent = `TIEMPO: ${min}:${sec}`;
+  timerDisplay.style.color = secs <= 30 ? '#ff6b6b' : '#9bff4f';
 }, 500);
 
 window.addEventListener('beforeunload', () => {
