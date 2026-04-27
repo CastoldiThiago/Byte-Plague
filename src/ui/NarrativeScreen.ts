@@ -6,25 +6,23 @@ const END_PAUSE_MS = 1800;
 
 const NARRATIVE_INTRO: readonly string[] = [
   'BYTE-PLAGUE v0.1',
-  'Sistema objetivo identificado.',
-  'Misión: cifrar 5 archivos clasificados antes de ser detectado.',
-  'Tiempo disponible: 02:00.',
-  'No te detecten.',
+  'Entraste a la maquina de un empleado mediante phishing.',
+  'Objetivo del nivel 1: encontrar un camino hacia la red interna.',
+  'La computadora se representa como una casa con habitaciones.',
+  'Elegi bien los comandos en cada puerta para avanzar.',
+  'Si fallas, el antivirus detecta tu presencia.',
 ];
 
 const NARRATIVE_LEVEL: Readonly<Record<number, readonly string[]>> = {
-  1: ['Terminal del laboratorio comprometida.', 'Persistencia establecida en el sistema.'],
-  2: ['Zona de red infiltrada.', 'Continúa hacia el mainframe.'],
-  3: ['Mainframe comprometido.', 'Último núcleo de seguridad identificado.'],
-  4: ['Acceso total obtenido.', 'Cifrá los archivos restantes.'],
+  1: ['Puerta final superada.', 'Canal de acceso a la red interna detectado.'],
 };
 
 const NARRATIVE_LOSE: readonly string[] = [
   'El antivirus te encontró.',
-  'Proceso eliminado.',
+  'Intrusión contenida. Conexion terminada.',
 ];
 
-const CIFRADO_OBJECTIVES = ['cifrado-1', 'cifrado-2', 'cifrado-3', 'cifrado-4', 'cifrado-5'];
+const PRIMARY_OBJECTIVE = 'acceso-red-interna';
 
 export class NarrativeScreen {
   private readonly overlay: HTMLElement;
@@ -85,30 +83,30 @@ export class NarrativeScreen {
 
   private buildWinLines(): string[] {
     const gs = GameStateManager.getInstance();
-    const filesEncrypted = gs.objectivesCompleted.filter(id => id.startsWith('cifrado-')).length;
-    const timeUsed = 120 - gs.timerSeconds;
+    const timeUsed = 180 - gs.timerSeconds;
     const min = Math.floor(timeUsed / 60).toString().padStart(2, '0');
     const sec = (timeUsed % 60).toString().padStart(2, '0');
-    const dataMB = filesEncrypted * 480;
-    const dataLabel = dataMB >= 1000 ? `${(dataMB / 1000).toFixed(1)} GB` : `${dataMB} MB`;
-    const cost = (filesEncrypted * 169_400).toLocaleString('es-AR');
+    const mistakes = Math.round(gs.alertLevel / 20);
+    const route = gs.objectivesCompleted.includes(PRIMARY_OBJECTIVE)
+      ? 'Gateway 10.10.0.20 comprometido'
+      : 'Ruta incompleta';
 
     const row = (label: string, value: string): string =>
       `  ${label.padEnd(24)}${value}`;
 
     return [
       'Misión completada.',
-      'Lograste tu objetivo.',
-      'La empresa tardó 23 días en recuperarse.',
+      'Encontraste acceso hacia la red interna.',
+      'El reconocimiento inicial fue exitoso.',
       '',
-      '--- REPORTE DE DAÑOS ---',
-      row('archivos cifrados', `${filesEncrypted} / 5`),
+      '--- REPORTE DE INTRUSION ---',
+      row('estado del objetivo', 'cumplido'),
+      row('ruta encontrada', route),
       row('tiempo empleado', `${min}:${sec}`),
-      row('datos exfiltrados', dataLabel),
-      row('costo estimado', `$${cost}`),
+      row('errores de comando', `${mistakes} aprox.`),
       '',
-      'El 60 % de las brechas tardan más de 200 días en detectarse.',
-      'Conocer el ataque es la primera línea de defensa.',
+      'La fase de movimiento lateral queda habilitada para el nivel 2.',
+      'Una mala decision en comandos puede arruinar toda la operacion.',
     ];
   }
 
@@ -173,7 +171,7 @@ export class NarrativeScreen {
 
   private readonly onGameOver = (): void => {
     const completed = GameStateManager.getInstance().objectivesCompleted;
-    const won = CIFRADO_OBJECTIVES.every(id => completed.includes(id));
+    const won = completed.includes(PRIMARY_OBJECTIVE);
     this.showEndScreen(won);
   };
 

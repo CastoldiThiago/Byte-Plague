@@ -6,6 +6,13 @@ interface PlayerControllerOptions {
   domElement: HTMLElement;
   scene: THREE.Scene;
   interactables: THREE.Object3D[];
+  collidables: THREE.Object3D[];
+}
+
+interface FocusDetail {
+  poiId: string;
+  poiLabel?: string;
+  distance: number;
 }
 
 interface InputState {
@@ -22,6 +29,12 @@ export class PlayerController {
   private readonly raycaster: THREE.Raycaster;
   private readonly rayOrigin: THREE.Vector2;
   private readonly interactables: THREE.Object3D[];
+  private readonly collidables: THREE.Object3D[];
+  private readonly worldUp = new THREE.Vector3(0, 1, 0);
+  private readonly moveDirection = new THREE.Vector3();
+  private readonly forwardDirection = new THREE.Vector3();
+  private readonly rightDirection = new THREE.Vector3();
+  private readonly colliderBox = new THREE.Box3();
 
   private readonly input: InputState = {
     forward: false,
@@ -31,12 +44,14 @@ export class PlayerController {
   };
 
   private readonly moveSpeed = 6;
+  private readonly playerRadius = 0.35;
   private currentTarget: THREE.Object3D | null = null;
 
   public constructor(options: PlayerControllerOptions) {
     this.camera = options.camera;
     this.domElement = options.domElement;
     this.interactables = options.interactables;
+    this.collidables = options.collidables;
 
     this.controls = new PointerLockControls(this.camera, this.domElement);
     options.scene.add(this.controls.object);
@@ -51,23 +66,8 @@ export class PlayerController {
 
   public update(deltaTime: number): void {
     if (this.controls.isLocked) {
-      const distance = this.moveSpeed * deltaTime;
-
-      if (this.input.forward) {
-        this.controls.moveForward(distance);
-      }
-
-      if (this.input.backward) {
-        this.controls.moveForward(-distance);
-      }
-
-      if (this.input.left) {
-        this.controls.moveRight(-distance);
-      }
-
-      if (this.input.right) {
-        this.controls.moveRight(distance);
-      }
+      this.computeMoveDirection(deltaTime);
+      this.applyMovementWithCollision();
     }
 
     this.updateRaycastTarget();
@@ -152,7 +152,85 @@ export class PlayerController {
     this.currentTarget = firstInteractiveObject;
 
     const poiId = String(this.currentTarget.userData.poiId ?? this.currentTarget.name ?? 'unknown-poi');
-    window.dispatchEvent(new CustomEvent('poiFocus', { detail: { poiId } }));
+    const poiLabel = String(this.currentTarget.userData.poiLabel ?? poiId);
+    const distance = this.camera.position.distanceTo(this.currentTarget.getWorldPosition(new THREE.Vector3()));
+    window.dispatchEvent(new CustomEvent<FocusDetail>('poiFocus', { detail: { poiId, poiLabel, distance } }));
+  }
+
+  private computeMoveDirection(deltaTime: number): void {
+    this.moveDirection.set(0, 0, 0);
+
+    this.camera.getWorldDirection(this.forwardDirection);
+    this.forwardDirection.y = 0;
+
+    if (this.forwardDirection.lengthSq() < 1e-6) {
+      return;
+    }
+
+    this.forwardDirection.normalize();
+    this.rightDirection.crossVectors(this.forwardDirection, this.worldUp).normalize();
+
+    if (this.input.forward) {
+      this.moveDirection.add(this.forwardDirection);
+    }
+
+    if (this.input.backward) {
+      this.moveDirection.sub(this.forwardDirection);
+    }
+
+    if (this.input.left) {
+      this.moveDirection.sub(this.rightDirection);
+    }
+
+    if (this.input.right) {
+      this.moveDirection.add(this.rightDirection);
+    }
+
+    if (this.moveDirection.lengthSq() === 0) {
+      return;
+    }
+
+    this.moveDirection.normalize().multiplyScalar(this.moveSpeed * deltaTime);
+  }
+
+  private applyMovementWithCollision(): void {
+    if (this.moveDirection.lengthSq() === 0) {
+      return;
+    }
+
+    const playerPos = this.controls.object.position;
+    const nextX = playerPos.x + this.moveDirection.x;
+
+    if (!this.willCollide(nextX, playerPos.z)) {
+      playerPos.x = nextX;
+    }
+
+    const nextZ = playerPos.z + this.moveDirection.z;
+
+    if (!this.willCollide(playerPos.x, nextZ)) {
+      playerPos.z = nextZ;
+    }
+  }
+
+  private willCollide(x: number, z: number): boolean {
+    for (const collider of this.collidables) {
+      if (collider.userData.ignoreCollision === true) {
+        continue;
+      }
+
+      this.colliderBox.setFromObject(collider);
+
+      if (
+        x > this.colliderBox.min.x - this.playerRadius
+        && x < this.colliderBox.max.x + this.playerRadius
+        && z > this.colliderBox.min.z - this.playerRadius
+        && z < this.colliderBox.max.z + this.playerRadius
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private findInteractiveAncestor(object: THREE.Object3D): THREE.Object3D | null {

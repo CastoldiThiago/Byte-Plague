@@ -155,97 +155,154 @@ body,
   color: #a8c0e0;
 }
 
-#terminal-overlay {
-  display: none;
+/* --- Command popup (no overlay, no pointer lock release) --- */
+#command-popup {
   position: absolute;
-  inset: 0;
-  z-index: 10;
-  background: rgba(0, 0, 0, 0.78);
-  align-items: center;
-  justify-content: center;
-}
-
-#terminal-overlay.visible {
-  display: flex;
-}
-
-#terminal-panel {
-  width: min(680px, 90vw);
-  height: min(420px, 80vh);
-  background: #0d1117;
-  border: 1px solid #4af626;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 360px;
+  background: rgba(8, 14, 22, 0.9);
+  border: 1px solid rgba(74, 246, 38, 0.65);
   border-radius: 6px;
-  display: flex;
-  flex-direction: column;
   font-family: 'Courier New', Courier, monospace;
   color: #4af626;
-  box-shadow: 0 0 32px rgba(74, 246, 38, 0.18);
-  overflow: hidden;
+  box-shadow: 0 0 24px rgba(74, 246, 38, 0.12);
+  backdrop-filter: blur(6px);
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
 }
 
-#terminal-header {
+#command-popup.visible {
+  opacity: 1;
+}
+
+#command-popup-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.9rem;
-  background: #161b22;
-  border-bottom: 1px solid #4af62640;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  flex-shrink: 0;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  background: rgba(74, 246, 38, 0.07);
+  border-bottom: 1px solid rgba(74, 246, 38, 0.22);
 }
 
-#terminal-header .terminal-title {
+#command-popup-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
   opacity: 0.9;
 }
 
-#terminal-header .terminal-close-hint {
-  opacity: 0.45;
-  font-size: 0.72rem;
+#command-popup-esc {
+  font-size: 0.66rem;
+  opacity: 0.4;
 }
 
-#terminal-body {
-  flex: 1;
-  padding: 0.75rem 0.9rem;
-  overflow-y: auto;
-  font-size: 0.85rem;
-  line-height: 1.6;
-  scrollbar-width: thin;
-  scrollbar-color: #4af62640 transparent;
+#command-popup-choices {
+  padding: 0.55rem 0.75rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-#terminal-footer {
+.command-choice {
   display: flex;
   align-items: center;
-  padding: 0.5rem 0.9rem;
-  border-top: 1px solid #4af62640;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  gap: 0.6rem;
+  padding: 0.4rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(74, 246, 38, 0.18);
 }
 
-#terminal-footer .terminal-prompt {
-  opacity: 0.6;
-  font-size: 0.85rem;
-  user-select: none;
+.command-choice-key {
+  font-size: 0.7rem;
+  color: rgba(74, 246, 38, 0.5);
+  min-width: 1.6rem;
 }
 
-#terminal-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
+.command-choice-cmd {
+  font-size: 0.84rem;
+  color: #9bff4f;
+}
+
+/* --- Feedback panel (right side, non-blocking) --- */
+#feedback-panel {
+  position: absolute;
+  top: 50%;
+  right: 1.8rem;
+  transform: translateY(-50%);
+  width: 310px;
+  max-height: 58vh;
+  overflow-y: auto;
+  background: rgba(8, 14, 22, 0.84);
+  border: 1px solid rgba(74, 246, 38, 0.38);
+  border-radius: 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  padding: 0.7rem 0.85rem;
+  line-height: 1.65;
+  z-index: 8;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  scrollbar-width: thin;
+  scrollbar-color: #4af62630 transparent;
+}
+
+#feedback-panel.visible {
+  opacity: 1;
+}
+
+#feedback-panel.fade-out {
+  opacity: 0;
+}
+
+.feedback-cmd {
   color: #4af626;
-  font-family: inherit;
-  font-size: 0.85rem;
-  caret-color: #4af626;
+  margin-bottom: 0.35rem;
 }
 
-.terminal-line--success {
+.feedback-output {
+  color: #7aad6e;
+}
+
+.feedback-output--ok {
   color: #c8edc8;
 }
 
-.terminal-line--error {
+.feedback-output--err {
   color: #ff6b6b;
+}
+
+.feedback-conclusion {
+  color: #7de8ff;
+  font-style: italic;
+  opacity: 0.88;
+}
+
+.feedback-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(74, 246, 38, 0.18);
+  font-size: 0.67rem;
+  letter-spacing: 0.05em;
+}
+
+.feedback-nav-key {
+  color: rgba(74, 246, 38, 0.7);
+}
+
+.feedback-nav-key--off {
+  opacity: 0.2;
+}
+
+.feedback-nav-count {
+  color: rgba(74, 246, 38, 0.45);
 }
 
 @media (max-width: 700px) {

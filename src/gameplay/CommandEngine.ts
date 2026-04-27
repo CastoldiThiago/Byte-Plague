@@ -1,206 +1,159 @@
 export interface CommandResult {
   success: boolean;
   feedback: string;
+  conclusion?: string;
   objectiveId?: string;
 }
 
-interface CommandEntry {
-  output: string;
+export interface CommandChoice {
+  command: string;
   description: string;
-  objectiveId?: string;
 }
 
-interface PoiConfig {
+interface DoorScenario {
   label: string;
-  commands: Readonly<Record<string, CommandEntry | undefined>>;
+  prompt: string;
+  choices: readonly CommandChoice[];
+  correctCommand: string;
+  successOutput: string;
+  conclusion: string;
+  failOutput: string;
+  objectiveId?: string;
+  requiredObjectives?: readonly string[];
 }
 
-// Common Windows commands typed by mistake on a Unix terminal.
-const WRONG_COMMAND_HINTS: Readonly<Record<string, string | undefined>> = {
-  dir:      "'dir' es de Windows/DOS — en Unix usá 'ls' para listar el directorio.",
-  cls:      "'cls' es de Windows — en Unix usá 'clear' para limpiar la pantalla.",
-  type:     "'type' es de Windows — en Unix usá 'cat <archivo>' para ver el contenido.",
-  copy:     "'copy' es de Windows — en Unix usá 'cp' para copiar archivos.",
-  del:      "'del' es de Windows — en Unix usá 'rm' para eliminar archivos.",
-  ipconfig: "'ipconfig' es de Windows — en Unix usá 'ifconfig' o 'ip addr'.",
-  help:     "No hay comando 'help'. Escribí directamente los comandos para explorar el sistema.",
-  ping:     "'ping' verifica si un host responde. Para escanear redes y puertos usá 'nmap'.",
-  telnet:   "'telnet' transmite datos sin cifrar. Para sesiones seguras usá 'ssh'.",
-};
-
-const POI_COMMANDS: Readonly<Record<string, PoiConfig | undefined>> = {
-  'terminal-desktop': {
-    label: 'Terminal Desktop',
-    commands: {
-      'ls': {
-        output: 'readme.txt  notas.md  .ssh/',
-        description: 'lista los archivos del directorio actual',
-      },
-      'ls -la': {
-        output: 'total 3\n-rw-r--r--  readme.txt\n-rw-------  notas.md\ndrwx------  .ssh/',
-        description: 'lista archivos con permisos y ocultos (-l: largo, -a: todos)',
-      },
-      'cat readme.txt': {
-        output: 'Sistema comprometido. El agente debe revisar los logs.',
-        description: 'muestra el contenido del archivo readme.txt',
-        objectiveId: 'terminal-desktop',
-      },
-    },
+const DOOR_SCENARIOS: Readonly<Record<string, DoorScenario | undefined>> = {
+  'puerta-clientes': {
+    label: 'Puerta: carpeta clientes',
+    prompt: 'Elegi el comando correcto para entrar al directorio de clientes.',
+    choices: [
+      { command: 'cd clientes', description: 'entra al directorio de clientes' },
+      { command: 'rm -rf clientes', description: 'borra todo el directorio (ruidoso y peligroso)' },
+      { command: 'ping clientes', description: 'solo prueba conectividad de red' },
+    ],
+    correctCommand: 'cd clientes',
+    successOutput:
+      '[OK] Puerta abierta.\n\nDentro ves tres pistas:\n- clientes.db\n- contratos_2026.pdf\n- vpn-notes.txt\n\nEl archivo importante para seguir es clientes.db.',
+    conclusion: 'Esta habitacion te orienta hacia clientes.db, que despues habilita el salto a soporte IT.',
+    failOutput: '[ERROR] Comando invalido para abrir esta puerta. El antivirus registra actividad sospechosa.',
   },
-
-  'lab-terminal-01': {
-    label: 'Terminal del Laboratorio',
-    commands: {
-      'ls': {
-        output: 'readme.txt  virus_sample.bin  logs/',
-        description: 'lista los archivos del directorio actual',
-      },
-      'ls -la': {
-        output: 'total 3\n-rw-r--r--  readme.txt\n-rwxr-----  virus_sample.bin\ndrwxr-xr-x  logs/',
-        description: 'lista archivos con permisos y ocultos (-l: largo, -a: todos)',
-      },
-      'cat readme.txt': {
-        output: 'BYTE-PLAGUE v0.1 — Muestras de malware en cuarentena.\nAnalizá con precaución.',
-        description: 'muestra el contenido del archivo readme.txt',
-        objectiveId: 'lab-terminal-01',
-      },
-    },
+  'puerta-soporte': {
+    label: 'Puerta: carpeta soporte-it',
+    prompt: 'Necesitas entrar al area de soporte IT para buscar credenciales o rutas internas.',
+    choices: [
+      { command: 'cd soporte-it', description: 'entra al directorio de soporte' },
+      { command: 'mkdir soporte-it', description: 'crea carpeta nueva, no entra' },
+      { command: 'sudo reboot', description: 'reinicia la maquina y arruina la intrusion' },
+    ],
+    correctCommand: 'cd soporte-it',
+    successOutput:
+      '[OK] Acceso concedido a soporte-it.\n\nDentro ves tres pistas:\n- inventario_hosts.csv\n- credenciales_vpn.txt\n- procedimientos.md\n\nEl archivo importante para seguir es credenciales_vpn.txt.',
+    conclusion: 'Esta habitacion te entrega credenciales_vpn.txt, necesarias para el acceso final a la red.',
+    failOutput: '[ERROR] Intento fallido. El antivirus aumento su nivel de sospecha.',
+    requiredObjectives: ['dato-clientes'],
   },
-
-  'terminal-red-scan': {
-    label: 'Terminal de Escaneo de Red',
-    commands: {
-      'nmap 192.168.1.0/24': {
-        output: 'Escaneando red interna 192.168.1.0/24...\n\nHost: 192.168.1.1   — Router       (puertos: 80, 443)\nHost: 192.168.1.5   — Servidor Admin (puertos: 22, 8080)\nHost: 192.168.1.12  — Workstation   (puerto: 3389)\n\n3 hosts activos encontrados.',
-        description: 'escanea hosts y puertos activos en toda la subred (/24 = 256 direcciones)',
-        objectiveId: 'escanear-red',
-      },
-    },
+  'puerta-red-interna': {
+    label: 'Puerta: salto a red interna',
+    prompt: 'Ya tienes pistas. Selecciona el comando para pivotear a la red interna de la empresa.',
+    choices: [
+      { command: 'ssh netops@10.10.0.20', description: 'salto SSH al gateway interno' },
+      { command: 'format c:', description: 'comando destructivo y fuera de objetivo' },
+      { command: 'shutdown /s', description: 'apaga el host y activa alertas de SOC' },
+    ],
+    correctCommand: 'ssh netops@10.10.0.20',
+    successOutput:
+      '[OK] TUNEL ESTABLECIDO.\nConexion a 10.10.0.20 exitosa.\nHas encontrado la via de entrada a la red interna.',
+    conclusion: 'Con este salto confirmas la ruta interna y completas el objetivo del nivel 1.',
+    failOutput: '[ERROR] Comando rechazado. El antivirus asocia tu actividad con una intrusion activa.',
+    objectiveId: 'acceso-red-interna',
+    requiredObjectives: ['dato-clientes', 'dato-soporte'],
   },
-
-  'terminal-ssh-connect': {
-    label: 'Terminal de Conexión SSH',
-    commands: {
-      'ssh admin@192.168.1.5': {
-        output: 'Conectando a admin@192.168.1.5 (puerto 22)...\nAutenticando con clave RSA...\n\n[OK] Sesión abierta — Servidor Admin v2.4\nÚltimo acceso: hace 2 días desde 10.0.0.44\n\nAcceso remoto establecido.',
-        description: "abre una sesión SSH cifrada como usuario 'admin' en el servidor 192.168.1.5",
-        objectiveId: 'acceso-ssh',
-      },
-    },
+  'archivo-clientes': {
+    label: 'Archivo: clientes.db',
+    prompt: 'Selecciona el comando correcto para inspeccionar el archivo de clientes.',
+    choices: [
+      { command: 'cat clientes.db', description: 'inspecciona contenido legible del archivo' },
+      { command: 'rm clientes.db', description: 'elimina evidencia valiosa' },
+      { command: 'shutdown /r', description: 'reinicia sistema y corta la infiltracion' },
+    ],
+    correctCommand: 'cat clientes.db',
+    successOutput:
+      '[OK] clientes.db abierto en modo lectura.\n\nEntradas relevantes:\n- employee_id: 302\n- vpn_profile: remote-netops\n- default_gateway_hint: 10.10.0.20\n\nCon esto ya sabes que el siguiente paso esta en soporte IT.',
+    conclusion: 'La base de clientes te da la primera pista util para buscar soporte IT.',
+    failOutput: '[ERROR] Comando no valido para inspeccionar este archivo.',
+    objectiveId: 'dato-clientes',
   },
-
-  'archivo-1': {
-    label: 'Archivo 1',
-    commands: {
-      'ls': { output: 'archivo1.dat  metadata.txt', description: 'lista el directorio' },
-      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
-      'openssl enc -aes-256-cbc -in archivo1': {
-        output: 'Cifrando archivo1.dat con AES-256-CBC...\n[OK] archivo1.dat.enc generado — clave guardada en .key',
-        description: 'cifra archivo1.dat con AES-256 en modo CBC',
-        objectiveId: 'cifrado-1',
-      },
-    },
+  'archivo-soporte': {
+    label: 'Archivo: credenciales_vpn.txt',
+    prompt: 'Necesitas extraer credenciales sin romper el entorno del empleado.',
+    choices: [
+      { command: 'cat credenciales_vpn.txt', description: 'muestra credenciales en texto plano' },
+      { command: 'chmod 777 credenciales_vpn.txt', description: 'altera permisos y deja huella' },
+      { command: 'echo hola', description: 'no aporta informacion util' },
+    ],
+    correctCommand: 'cat credenciales_vpn.txt',
+    successOutput:
+      '[OK] credenciales_vpn.txt\nuser: netops\nlast_login: 2026-04-24\nnote: acceso preferente por SSH al gateway 10.10.0.20\n\nCon este usuario podes entrar a la habitacion final.',
+    conclusion: 'Las credenciales te dejan a un paso de la red interna.',
+    failOutput: '[ERROR] Fallo de operacion. La accion no extrae datos utiles.',
+    objectiveId: 'dato-soporte',
   },
-
-  'archivo-2': {
-    label: 'Archivo 2',
-    commands: {
-      'ls': { output: 'archivo2.dat  metadata.txt', description: 'lista el directorio' },
-      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
-      'openssl enc -aes-256-cbc -in archivo2': {
-        output: 'Cifrando archivo2.dat con AES-256-CBC...\n[OK] archivo2.dat.enc generado — clave guardada en .key',
-        description: 'cifra archivo2.dat con AES-256 en modo CBC',
-        objectiveId: 'cifrado-2',
-      },
-    },
-  },
-
-  'archivo-3': {
-    label: 'Archivo 3',
-    commands: {
-      'ls': { output: 'archivo3.dat  metadata.txt', description: 'lista el directorio' },
-      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
-      'openssl enc -aes-256-cbc -in archivo3': {
-        output: 'Cifrando archivo3.dat con AES-256-CBC...\n[OK] archivo3.dat.enc generado — clave guardada en .key',
-        description: 'cifra archivo3.dat con AES-256 en modo CBC',
-        objectiveId: 'cifrado-3',
-      },
-    },
-  },
-
-  'archivo-4': {
-    label: 'Archivo 4',
-    commands: {
-      'ls': { output: 'archivo4.dat  metadata.txt', description: 'lista el directorio' },
-      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
-      'openssl enc -aes-256-cbc -in archivo4': {
-        output: 'Cifrando archivo4.dat con AES-256-CBC...\n[OK] archivo4.dat.enc generado — clave guardada en .key',
-        description: 'cifra archivo4.dat con AES-256 en modo CBC',
-        objectiveId: 'cifrado-4',
-      },
-    },
-  },
-
-  'archivo-5': {
-    label: 'Archivo 5',
-    commands: {
-      'ls': { output: 'archivo5.dat  metadata.txt', description: 'lista el directorio' },
-      'cat metadata.txt': { output: 'Archivo clasificado — requiere cifrado antes del exfil.', description: 'muestra el contenido de metadata.txt' },
-      'openssl enc -aes-256-cbc -in archivo5': {
-        output: 'Cifrando archivo5.dat con AES-256-CBC...\n[OK] archivo5.dat.enc generado — clave guardada en .key',
-        description: 'cifra archivo5.dat con AES-256 en modo CBC',
-        objectiveId: 'cifrado-5',
-      },
-    },
-  },
-
-  'terminal-inicio': {
-    label: 'Terminal de Inicio',
-    commands: {
-      'ls': {
-        output: 'Escritorio/  Descargas/  Documentos/\nreadme.txt  .bashrc  .profile',
-        description: 'lista los archivos y carpetas del directorio actual',
-      },
-      'cat readme.txt': {
-        output: 'MISIÓN: El sistema objetivo reinicia cada hora.\nEstablecé persistencia antes de que el agente sea detectado.\nPista: los trabajos programados sobreviven a los reinicios.',
-        description: 'muestra la pista de la misión contenida en readme.txt',
-      },
-      'crontab -e': {
-        output: '# Entrada agregada al crontab del usuario:\n@reboot /home/agente/.payload/run.sh\n\n[OK] Persistencia establecida — el payload se ejecutará en cada reinicio.',
-        description: 'edita los trabajos programados del usuario (cron jobs) — sobreviven a reinicios',
-        objectiveId: 'establecer-persistencia',
-      },
-    },
+  'archivo-red': {
+    label: 'Archivo: network-map.json',
+    prompt: 'Valida la topologia antes de intentar moverte lateralmente.',
+    choices: [
+      { command: 'cat network-map.json', description: 'lee el mapa de segmentos internos' },
+      { command: 'truncate -s 0 network-map.json', description: 'borra el archivo' },
+      { command: 'ping 8.8.8.8', description: 'test externo sin valor para la mision' },
+    ],
+    correctCommand: 'cat network-map.json',
+    successOutput:
+      '[OK] Segmentos detectados:\n- corp-core: 10.10.0.0/24\n- ops-tools: 10.10.2.0/24\n- backups: 10.10.4.0/24\n\nEl salto a red interna queda confirmado.',
+    conclusion: 'El mapa de red sirve para ubicar el objetivo final una vez dentro.',
+    failOutput: '[ERROR] Operacion invalida sobre network-map.json.',
+    objectiveId: 'dato-red',
   },
 };
 
 export class CommandEngine {
-  public process(command: string, poiId: string): CommandResult {
-    const poiConfig = POI_COMMANDS[poiId];
+  public getScenario(poiId: string): DoorScenario | null {
+    return DOOR_SCENARIOS[poiId] ?? null;
+  }
 
-    if (poiConfig === undefined) {
-      return { success: false, feedback: `Terminal '${poiId}' no reconocida.` };
+  public process(
+    command: string,
+    poiId: string,
+    unlockedObjectives: readonly string[] = [],
+  ): CommandResult {
+    const scenario = DOOR_SCENARIOS[poiId];
+
+    if (scenario === undefined) {
+      return { success: false, feedback: `Puerta '${poiId}' no reconocida.` };
     }
 
-    const entry = poiConfig.commands[command];
+    if (command === scenario.correctCommand) {
+      const requirements = scenario.requiredObjectives ?? [];
+      const hasAllRequirements = requirements.every(req => unlockedObjectives.includes(req));
 
-    if (entry !== undefined) {
-      return { success: true, feedback: entry.output, objectiveId: entry.objectiveId };
+      if (!hasAllRequirements) {
+        return {
+          success: false,
+          feedback:
+            '[ERROR] Aun no tienes la informacion necesaria para este salto.\n\nExplora primero clientes y soporte-it para obtener ruta y credenciales.',
+        };
+      }
+
+      return {
+        success: true,
+        feedback: scenario.successOutput,
+        conclusion: scenario.conclusion,
+        objectiveId: scenario.objectiveId,
+      };
     }
-
-    // Educational feedback: identify Windows-to-Unix mix-ups, then list what's available.
-    const cmdBase = command.split(' ')[0] ?? command;
-    const windowsHint = WRONG_COMMAND_HINTS[cmdBase];
-
-    const availableList = Object.entries(poiConfig.commands)
-      .map(([cmd, def]) => `  ${cmd.padEnd(16)} — ${def?.description ?? ''}`)
-      .join('\n');
-
-    const prefix = windowsHint !== undefined ? `${windowsHint}\n\n` : '';
 
     return {
       success: false,
-      feedback: `${prefix}Comandos disponibles en ${poiConfig.label}:\n${availableList}`,
+      feedback: `${scenario.failOutput}\n\n${scenario.prompt}`,
     };
   }
 }

@@ -4,15 +4,12 @@ export class GameStateManager {
   private _alertLevel = 0;
   private _currentLevel = 1;
   private _objectivesCompleted: string[] = [];
-  private _timerSeconds = 120;
+  private _timerSeconds = 180;
   private _timerIntervalId: number | null = null;
   private _isPaused = false;
 
   private static readonly LEVEL_OBJECTIVES: Readonly<Record<number, readonly string[]>> = {
-    1: ['lab-terminal-01'],
-    2: ['server-room-01', 'server-room-02'],
-    3: ['mainframe-01', 'mainframe-02', 'mainframe-03'],
-    4: ['boss-terminal-01', 'boss-terminal-02'],
+    1: ['acceso-red-interna'],
   };
 
   private constructor() {
@@ -66,10 +63,6 @@ export class GameStateManager {
     if (this._objectivesCompleted.includes(id)) return;
     this._objectivesCompleted.push(id);
 
-    if (id.startsWith('cifrado-')) {
-      window.dispatchEvent(new CustomEvent('archivoCifrado', { detail: { objectiveId: id } }));
-    }
-
     const levelObjectives = GameStateManager.LEVEL_OBJECTIVES[this._currentLevel] ?? [];
     const allDone =
       levelObjectives.length > 0 &&
@@ -86,7 +79,7 @@ export class GameStateManager {
     this._alertLevel = 0;
     this._currentLevel = 1;
     this._objectivesCompleted = [];
-    this._timerSeconds = 120;
+    this._timerSeconds = 180;
     this._isPaused = false;
     this.stopTimer();
     this._timerIntervalId = window.setInterval(this.tickTimer, 1000);

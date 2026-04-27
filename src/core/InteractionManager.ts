@@ -1,6 +1,8 @@
 export class InteractionManager {
   private readonly tooltip: HTMLElement;
   private activePoiId: string | null = null;
+  private activePoiDistance = Number.POSITIVE_INFINITY;
+  private readonly interactionRange = 2.4;
 
   public constructor() {
     this.tooltip = this.createTooltip();
@@ -27,7 +29,7 @@ export class InteractionManager {
 
     const hint = document.createElement('p');
     hint.className = 'poi-hint';
-    hint.textContent = 'Presioná E para interactuar';
+    hint.textContent = 'Acercate para interactuar';
 
     el.appendChild(name);
     el.appendChild(hint);
@@ -35,14 +37,18 @@ export class InteractionManager {
   }
 
   private readonly onPoiFocus = (event: Event): void => {
-    const { poiId } = (event as CustomEvent<{ poiId: string }>).detail;
+    const { poiId, poiLabel, distance } = (event as CustomEvent<{ poiId: string; poiLabel?: string; distance: number }>).detail;
     this.activePoiId = poiId;
-    (this.tooltip.querySelector('.poi-name') as HTMLElement).textContent = poiId;
+    this.activePoiDistance = distance;
+    (this.tooltip.querySelector('.poi-name') as HTMLElement).textContent = poiLabel ?? poiId;
+    this.refreshHint();
     this.tooltip.classList.add('visible');
   };
 
   private readonly onPoiBlur = (): void => {
     this.activePoiId = null;
+    this.activePoiDistance = Number.POSITIVE_INFINITY;
+    this.refreshHint();
     this.tooltip.classList.remove('visible');
   };
 
@@ -50,7 +56,15 @@ export class InteractionManager {
     if (event.code !== 'KeyE') return;
     if (this.activePoiId === null) return;
     if (document.pointerLockElement === null) return;
+    if (this.activePoiDistance > this.interactionRange) return;
 
     window.dispatchEvent(new CustomEvent('poiInteract', { detail: { poiId: this.activePoiId } }));
   };
+
+  private refreshHint(): void {
+    const hint = this.tooltip.querySelector('.poi-hint') as HTMLElement;
+    hint.textContent = this.activePoiDistance <= this.interactionRange
+      ? 'Presiona E para interactuar'
+      : 'Acercate para interactuar';
+  }
 }

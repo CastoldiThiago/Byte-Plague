@@ -11,13 +11,13 @@ if (!app) {
 app.innerHTML = `
   <div id="game-root"></div>
   <div id="hud">
-    <p>Click para capturar mouse</p>
-    <p>WASD para moverte | ESC para liberar cursor</p>
+    <p>Virus infiltrado por phishing</p>
+    <p>WASD moverse | E interactuar | 1/2/3 elegir comando | Q/R ver notas | ESC liberar cursor</p>
     <div id="alert-bar-track">
       <div id="alert-bar-fill"></div>
     </div>
-    <p id="alert-status">Sistema en reposo</p>
-    <p id="timer-display">TIEMPO: 02:00</p>
+    <p id="alert-status">Presencia encubierta</p>
+    <p id="timer-display">TIEMPO: 03:00</p>
   </div>
   <div id="crosshair" aria-hidden="true"></div>
 `;
@@ -40,13 +40,13 @@ const intervalId = setInterval((): void => {
   alertFill.style.backgroundColor = `hsl(${hue}, 85%, 45%)`;
 
   if (level <= 30) {
-    alertStatus.textContent = 'Sistema en reposo';
+    alertStatus.textContent = 'Presencia encubierta';
     alertStatus.style.color = '#9bff4f';
   } else if (level <= 70) {
-    alertStatus.textContent = 'Anomalía detectada';
+    alertStatus.textContent = 'Actividad sospechosa';
     alertStatus.style.color = '#ffd166';
   } else {
-    alertStatus.textContent = 'Alerta crítica';
+    alertStatus.textContent = 'Antivirus en persecucion';
     alertStatus.style.color = '#ff6b6b';
   }
 
