@@ -113,6 +113,23 @@ Registro vivo de decisiones de diseño y arquitectura. Cada entrada documenta el
 **Alternativas descartadas:** Array separado de entidades con referencia al mesh (más memoria, sincronización manual), componentes ECS.  
 **Consecuencias:** `this.interactables[]` en SceneManager debe contener todos los meshes interactivos. El `poiId` en userData es la llave para todo el sistema de comandos y tooltips.
 
+### [2026-04-27] Refactorización de SceneManager monolítico en módulos especializados
+
+**Contexto:** `SceneManager.ts` había crecido a 387 líneas mezclando responsabilidades: setup del renderer, construcción del mundo (suelo, muros, puertas, POIs, labels), animación de puertas, y orquestación del loop. Difícil de escalar cuando se agreguen assets externos (Sketchfab GLTF, texturas AmbientCG).  
+**Decisión:** Se extrajeron módulos por responsabilidad única:
+- `src/types/game.ts` — interfaces compartidas (`CommandChoice`, `CommandResult`, `Scenario`)
+- `src/data/scenarios.ts` — datos de escenarios extraídos de `CommandEngine`
+- `src/world/LabelSprite.ts` — factory pura para sprites de canvas (`createLabelSprite`, `disposeLabelSprite`)
+- `src/world/Door.ts` — clase `Door` con config, animación propia (`update(dt)`) y `open()`
+- `src/world/FilePOI.ts` — clase `FilePOI` con config de color/emissive y lifecycle
+- `src/world/WorldBuilder.ts` — compone suelo, muros, luces, puertas y POIs; expone `build()`, `openDoor()`, `update()`, `dispose()`
+- `src/core/AssetLoader.ts` — carga unificada de texturas, modelos GLTF y audio con `onProgress` callback
+- `src/ui/HUDManager.ts` — el setInterval del HUD extraído de `main.ts`
+
+`SceneManager.ts` pasó de 387 a ~110 líneas. `main.ts` pasó de 64 a ~30 líneas. `CommandEngine.ts` pasó de 160 a ~40 líneas.  
+**Alternativas descartadas:** Mantener el monolito y solo agregar comentarios (escala mal); separar por sistema ECS (overkill para el scope actual).  
+**Consecuencias:** Agregar una nueva habitación o puerta requiere solo extender `DOOR_CONFIGS` / `FILE_POI_CONFIGS` en `WorldBuilder.ts`. Integrar un modelo GLTF de Sketchfab se hace via `AssetLoader.load({ models: { nombre: url } })`. Las constantes de layout del mundo viven en `WorldBuilder.ts` como arrays de config, no como código imperativo disperso.
+
 ### [2026-04-26] Apertura visual de puertas desacoplada via evento doorUnlocked
 
 **Contexto:** Al acertar un comando de puerta, la UI cerraba panel pero no habia feedback diegetico en la escena. Hacia falta mostrar visualmente que la puerta se desbloqueo sin acoplar `TerminalUI` con `SceneManager`.  

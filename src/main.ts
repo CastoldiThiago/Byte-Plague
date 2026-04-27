@@ -1,12 +1,9 @@
 import './style.css';
 import { SceneManager } from './core/SceneManager';
-import { GameStateManager } from './core/GameStateManager';
+import { HUDManager } from './ui/HUDManager';
 
 const app = document.querySelector<HTMLDivElement>('#app');
-
-if (!app) {
-  throw new Error('No se encontro el contenedor #app para inicializar la escena.');
-}
+if (!app) throw new Error('No se encontro el contenedor #app para inicializar la escena.');
 
 app.innerHTML = `
   <div id="game-root"></div>
@@ -22,42 +19,17 @@ app.innerHTML = `
   <div id="crosshair" aria-hidden="true"></div>
 `;
 
-const gameRoot = document.querySelector<HTMLDivElement>('#game-root')!;
-const alertFill = document.querySelector<HTMLDivElement>('#alert-bar-fill')!;
-const alertStatus = document.querySelector<HTMLParagraphElement>('#alert-status')!;
-const timerDisplay = document.querySelector<HTMLParagraphElement>('#timer-display')!;
+const sceneManager = new SceneManager(document.querySelector<HTMLDivElement>('#game-root')!);
 
-const sceneManager = new SceneManager(gameRoot);
+const hud = new HUDManager(
+  document.querySelector<HTMLDivElement>('#alert-bar-fill')!,
+  document.querySelector<HTMLParagraphElement>('#alert-status')!,
+  document.querySelector<HTMLParagraphElement>('#timer-display')!,
+);
+
 sceneManager.start();
 
-const intervalId = setInterval((): void => {
-  const state = GameStateManager.getInstance();
-
-  const level = state.alertLevel;
-  const hue = Math.round(120 - (level / 100) * 120);
-
-  alertFill.style.width = `${level}%`;
-  alertFill.style.backgroundColor = `hsl(${hue}, 85%, 45%)`;
-
-  if (level <= 30) {
-    alertStatus.textContent = 'Presencia encubierta';
-    alertStatus.style.color = '#9bff4f';
-  } else if (level <= 70) {
-    alertStatus.textContent = 'Actividad sospechosa';
-    alertStatus.style.color = '#ffd166';
-  } else {
-    alertStatus.textContent = 'Antivirus en persecucion';
-    alertStatus.style.color = '#ff6b6b';
-  }
-
-  const secs = state.timerSeconds;
-  const min = Math.floor(secs / 60).toString().padStart(2, '0');
-  const sec = (secs % 60).toString().padStart(2, '0');
-  timerDisplay.textContent = `TIEMPO: ${min}:${sec}`;
-  timerDisplay.style.color = secs <= 30 ? '#ff6b6b' : '#9bff4f';
-}, 500);
-
 window.addEventListener('beforeunload', () => {
-  clearInterval(intervalId);
+  hud.dispose();
   sceneManager.dispose();
 });
