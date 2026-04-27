@@ -46,7 +46,7 @@ export class SceneManager {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x171718);
-    this.scene.fog = new THREE.Fog(0x171718, 10, 55);
+    this.scene.fog = new THREE.Fog(0x171718, 12, 38);
 
     this.camera = new THREE.PerspectiveCamera(
       75,
@@ -54,7 +54,7 @@ export class SceneManager {
       0.1,
       200,
     );
-    this.camera.position.set(0, 1.7, 8);
+    this.camera.position.set(0, 1.7, 9);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -154,40 +154,37 @@ export class SceneManager {
     this.scene.add(ambient);
 
     const keyLight = new THREE.DirectionalLight(0xfff3d3, 1.1);
-    keyLight.position.set(8, 12, 6);
+    keyLight.position.set(4, 16, -8);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(2048, 2048);
-    keyLight.shadow.camera.left = -20;
-    keyLight.shadow.camera.right = 20;
+    keyLight.shadow.camera.left = -12;
+    keyLight.shadow.camera.right = 12;
     keyLight.shadow.camera.top = 20;
-    keyLight.shadow.camera.bottom = -20;
+    keyLight.shadow.camera.bottom = -44;
     keyLight.shadow.camera.near = 1;
-    keyLight.shadow.camera.far = 70;
+    keyLight.shadow.camera.far = 100;
 
     this.scene.add(keyLight);
   }
 
   private setupWorld(): void {
+    // Layout: 4 rooms in a line along -Z. Player always moves forward (south).
+    // ENTRADA z=0..12 | CLIENTES z=-10..0 | SOPORTE z=-20..-10 | RED INTERNA z=-30..-20
+    // Corridor width x=-6..6, dividing walls at z=0, -10, -20 with 2-unit gap at x=0.
+
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(60, 60),
-      new THREE.MeshStandardMaterial({
-        color: 0x2c2f36,
-        roughness: 0.96,
-        metalness: 0.04,
-      }),
+      new THREE.PlaneGeometry(12, 44),
+      new THREE.MeshStandardMaterial({ color: 0x2c2f36, roughness: 0.96, metalness: 0.04 }),
     );
     floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, 0, -9);
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x6c7a89,
-      roughness: 0.82,
-      metalness: 0.08,
-    });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x6c7a89, roughness: 0.82, metalness: 0.08 });
 
     const makeWall = (x: number, z: number, w: number, h: number, d: number): void => {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMaterial);
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
       wall.position.set(x, h / 2, z);
       wall.castShadow = true;
       wall.receiveShadow = true;
@@ -195,85 +192,47 @@ export class SceneManager {
       this.collidables.push(wall);
     };
 
-    const makeWallWithVerticalDoorGap = (
-      x: number,
-      zStart: number,
-      zEnd: number,
-      gapCenterZ: number,
-      gapSize: number,
-    ): void => {
-      const gapStart = gapCenterZ - gapSize / 2;
-      const gapEnd = gapCenterZ + gapSize / 2;
+    // Perimeter
+    makeWall(0, 12, 12, 3, 1);   // north (back of entrance)
+    makeWall(0, -30, 12, 3, 1);  // south (back of red interna)
+    makeWall(-6, -9, 1, 3, 44);  // west  (full depth)
+    makeWall(6, -9, 1, 3, 44);   // east  (full depth)
 
-      const lowerLen = gapStart - zStart;
-      if (lowerLen > 0.05) {
-        makeWall(x, zStart + lowerLen / 2, 1, 3, lowerLen);
-      }
-
-      const upperLen = zEnd - gapEnd;
-      if (upperLen > 0.05) {
-        makeWall(x, gapEnd + upperLen / 2, 1, 3, upperLen);
-      }
+    // Interior dividing walls: gap 2 units wide at x=0
+    // Each side: x=-6..-1 (len=5, center=-3.5) and x=1..6 (len=5, center=3.5)
+    const addDivider = (z: number): void => {
+      makeWall(-3.5, z, 5, 3, 1);
+      makeWall(3.5, z, 5, 3, 1);
     };
+    addDivider(0);   // entrance → clientes
+    addDivider(-10); // clientes  → soporte
+    addDivider(-20); // soporte   → red interna
 
-    makeWall(0, -10, 20, 3, 1);
-    makeWall(0, 10, 20, 3, 1);
-    makeWall(-10, 0, 1, 3, 20);
-    makeWallWithVerticalDoorGap(10, -10, 10, 4, 2.4);
+    // Per-room point lights
+    const addRoomLight = (color: number, z: number): void => {
+      const light = new THREE.PointLight(color, 1.6, 16);
+      light.position.set(0, 2.6, z);
+      this.scene.add(light);
+    };
+    addRoomLight(0xffb56b, 6);   // entrada: warm
+    addRoomLight(0x6bc8ff, -5);  // clientes: blue
+    addRoomLight(0xffd580, -15); // soporte: amber
+    addRoomLight(0x98ff8a, -25); // red interna: green
 
-    makeWallWithVerticalDoorGap(-3, -10, 10, 3.5, 2.4);
-    makeWallWithVerticalDoorGap(4, -10, 6, -5.5, 2.4);
+    this.addRoomLabel('ENTRADA', 0, 6);
+    this.addRoomLabel('CLIENTES', 0, -5);
+    this.addRoomLabel('SOPORTE IT', 0, -15);
+    this.addRoomLabel('RED INTERNA', 0, -25);
 
-    const roomLightA = new THREE.PointLight(0xffb56b, 1.6, 14);
-    roomLightA.position.set(-6, 2.6, 5);
-    this.scene.add(roomLightA);
-
-    const roomLightB = new THREE.PointLight(0x6bc8ff, 1.4, 14);
-    roomLightB.position.set(0, 2.6, -5);
-    this.scene.add(roomLightB);
-
-    const roomLightC = new THREE.PointLight(0x98ff8a, 1.8, 14);
-    roomLightC.position.set(7, 2.6, 4);
-    this.scene.add(roomLightC);
-
-    this.addRoomLabel('CLIENTES', -6.5, 6.3);
-    this.addRoomLabel('SOPORTE IT', 1.2, -6.8);
-    this.addRoomLabel('RED INTERNA', 7.8, 6.0);
-
-    const doorMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd4a373,
-      roughness: 0.55,
-      metalness: 0.12,
-      emissive: 0x22190d,
+    // Doors — horizontal walls (constant Z), door mesh wide on X, thin on Z
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0xd4a373, roughness: 0.55, metalness: 0.12, emissive: 0x22190d,
     });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x4f5c6a, roughness: 0.72, metalness: 0.12 });
 
-    const addDoorFrame = (x: number, z: number): void => {
-      const frameMaterial = new THREE.MeshStandardMaterial({
-        color: 0x4f5c6a,
-        roughness: 0.72,
-        metalness: 0.12,
-      });
-
-      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 1.6), frameMaterial);
-      frameTop.position.set(x, 2.48, z);
-      frameTop.castShadow = true;
-      frameTop.receiveShadow = true;
-      this.scene.add(frameTop);
-
-      // Slight floor marker to make entrances readable in first-person.
-      const threshold = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.6, 0.8),
-        new THREE.MeshBasicMaterial({ color: 0x203349, transparent: true, opacity: 0.55 }),
-      );
-      threshold.rotation.x = -Math.PI / 2;
-      threshold.position.set(x, 0.02, z);
-      this.scene.add(threshold);
-    };
-
-    const addDoor = (x: number, z: number, poiId: string, label: string, openDirection: 1 | -1): void => {
-      // Doorways are on walls with constant X, so width must be on Z axis.
-      const door = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.3, 1.4), doorMaterial.clone());
-      door.position.set(x, 1.15, z);
+    const addDoor = (z: number, poiId: string, label: string, openDirection: 1 | -1): void => {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.3, 0.25), doorMat.clone());
+      door.position.set(0, 1.15, z);
       door.castShadow = true;
       door.receiveShadow = true;
       door.userData.interactive = true;
@@ -287,17 +246,31 @@ export class SceneManager {
       this.collidables.push(door);
       this.doorMeshes.set(poiId, door);
 
-      addDoorFrame(x, z);
+      // Frame top (spans X, thin on Z)
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.22, 0.28), frameMat);
+      frameTop.position.set(0, 2.48, z);
+      frameTop.castShadow = true;
+      this.scene.add(frameTop);
 
+      // Floor threshold
+      const threshold = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.6, 0.8),
+        new THREE.MeshBasicMaterial({ color: 0x203349, transparent: true, opacity: 0.55 }),
+      );
+      threshold.rotation.x = -Math.PI / 2;
+      threshold.position.set(0, 0.02, z);
+      this.scene.add(threshold);
+
+      // Label on the approach side (north = z+)
       const labelSprite = this.createLabelSprite(label);
-      labelSprite.position.set(x, 2.9, z - 0.95);
+      labelSprite.position.set(0, 2.9, z + 1.1);
       this.scene.add(labelSprite);
       this.labelSprites.push(labelSprite);
     };
 
-    addDoor(-3, 3.5, 'puerta-clientes', 'Clientes', -1);
-    addDoor(4, -5.5, 'puerta-soporte', 'Soporte IT', 1);
-    addDoor(9.9, 4, 'puerta-red-interna', 'Red Interna', -1);
+    addDoor(0, 'puerta-clientes', 'Clientes', 1);
+    addDoor(-10, 'puerta-soporte', 'Soporte IT', -1);
+    addDoor(-20, 'puerta-red-interna', 'Red Interna', 1);
 
     this.addRoomFiles();
   }
@@ -371,9 +344,9 @@ export class SceneManager {
       this.labelSprites.push(labelSprite);
     };
 
-    addFilePoi('archivo-clientes', 'clientes.db', -6.6, 4.9, fileMaterialA);
-    addFilePoi('archivo-soporte', 'credenciales_vpn.txt', 1.3, -6.7, fileMaterialB);
-    addFilePoi('archivo-red', 'network-map.json', 7.6, 5.4, fileMaterialC);
+    addFilePoi('archivo-clientes', 'clientes.db', -2.5, -5, fileMaterialA);
+    addFilePoi('archivo-soporte', 'credenciales_vpn.txt', -2.5, -15, fileMaterialB);
+    addFilePoi('archivo-red', 'network-map.json', -2.5, -25, fileMaterialC);
   }
 
   private addRoomLabel(text: string, x: number, z: number): void {
