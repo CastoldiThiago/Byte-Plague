@@ -161,10 +161,6 @@ export class PlayerController {
       return;
     }
 
-    if (firstInteractiveObject === this.currentTarget) {
-      return;
-    }
-
     this.currentTarget = firstInteractiveObject;
 
     const poiId = String(this.currentTarget.userData.poiId ?? this.currentTarget.name ?? 'unknown-poi');
