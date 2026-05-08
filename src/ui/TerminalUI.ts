@@ -53,7 +53,7 @@ export class TerminalUI {
 
     const esc = document.createElement('span');
     esc.id = 'command-popup-esc';
-    esc.textContent = '[ESC] cerrar';
+    esc.textContent = '[E] cerrar';
 
     header.appendChild(title);
     header.appendChild(esc);
@@ -201,7 +201,13 @@ export class TerminalUI {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (this.isOpen) {
-      if (event.code === 'Escape') { this.close(); return; }
+      if (event.code === 'KeyE') {
+        // stopImmediatePropagation evita que InteractionManager procese este E
+        // y vuelva a disparar poiInteract reabriendo el panel
+        event.stopImmediatePropagation();
+        this.close();
+        return;
+      }
       if (event.code === 'Digit1') this.choose(0);
       else if (event.code === 'Digit2') this.choose(1);
       else if (event.code === 'Digit3') this.choose(2);

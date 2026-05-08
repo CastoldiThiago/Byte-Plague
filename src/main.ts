@@ -1,6 +1,7 @@
 import './style.css';
 import { SceneManager } from './core/SceneManager';
 import { HUDManager } from './ui/HUDManager';
+import { PauseMenu } from './ui/PauseMenu';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('No se encontro el contenedor #app para inicializar la escena.');
@@ -9,7 +10,7 @@ app.innerHTML = `
   <div id="game-root"></div>
   <div id="hud">
     <p>Virus infiltrado por phishing</p>
-    <p>WASD moverse | E interactuar | 1/2/3 elegir comando | Q/R ver notas | ESC liberar cursor</p>
+    <p>WASD moverse | E interactuar/cerrar | 1/2/3 elegir comando | Q/R ver notas | ESC pausar</p>
     <div id="alert-bar-track">
       <div id="alert-bar-fill"></div>
     </div>
@@ -20,6 +21,8 @@ app.innerHTML = `
 `;
 
 const sceneManager = new SceneManager(document.querySelector<HTMLDivElement>('#game-root')!);
+// lockFn se llama directo desde un handler de click/keydown (gesto nativo)
+const pauseMenu = new PauseMenu(() => sceneManager.requestPointerLock());
 
 const hud = new HUDManager(
   document.querySelector<HTMLDivElement>('#alert-bar-fill')!,
@@ -31,5 +34,6 @@ sceneManager.start();
 
 window.addEventListener('beforeunload', () => {
   hud.dispose();
+  pauseMenu.dispose();
   sceneManager.dispose();
 });

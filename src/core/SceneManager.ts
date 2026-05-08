@@ -19,12 +19,23 @@ export class SceneManager {
   private readonly narrativeScreen: NarrativeScreen;
   private readonly audioManager: AudioManager;
   private animationFrameId: number | null = null;
+  private isPaused = false;
 
   private readonly onGameOver = (): void => {
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+  };
+
+  private readonly onGamePaused = (): void => {
+    this.isPaused = true;
+    GameStateManager.getInstance().setPaused(true);
+  };
+
+  private readonly onGameResumed = (): void => {
+    this.isPaused = false;
+    GameStateManager.getInstance().setPaused(false);
   };
 
   private readonly onDoorUnlocked = (event: Event): void => {
@@ -62,8 +73,10 @@ export class SceneManager {
       collidables,
     });
 
-    this.interactionManager = new InteractionManager();
+    // TerminalUI debe registrar su keydown ANTES que InteractionManager
+    // para que stopImmediatePropagation() funcione al cerrar con E
     this.terminalUI = new TerminalUI();
+    this.interactionManager = new InteractionManager();
     this.narrativeScreen = new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
 
@@ -71,11 +84,17 @@ export class SceneManager {
     window.addEventListener('resize', this.onResize);
     window.addEventListener('gameOver', this.onGameOver);
     window.addEventListener('doorUnlocked', this.onDoorUnlocked);
+    window.addEventListener('gamePaused', this.onGamePaused);
+    window.addEventListener('gameResumed', this.onGameResumed);
   }
 
   public start(): void {
     if (this.animationFrameId !== null) return;
     this.animate();
+  }
+
+  public requestPointerLock(): void {
+    this.playerController.requestLock();
   }
 
   public dispose(): void {
@@ -86,6 +105,8 @@ export class SceneManager {
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('gameOver', this.onGameOver);
     window.removeEventListener('doorUnlocked', this.onDoorUnlocked);
+    window.removeEventListener('gamePaused', this.onGamePaused);
+    window.removeEventListener('gameResumed', this.onGameResumed);
     this.audioManager.dispose();
     this.playerController.dispose();
     this.interactionManager.dispose();
@@ -97,11 +118,13 @@ export class SceneManager {
 
   private readonly animate = (): void => {
     this.timer.update();
-    const deltaTime = this.timer.getDelta();
 
-    this.playerController.update(deltaTime);
-    this.worldBuilder.update(deltaTime);
-    this.audioManager.update();
+    if (!this.isPaused) {
+      const deltaTime = this.timer.getDelta();
+      this.playerController.update(deltaTime);
+      this.worldBuilder.update(deltaTime);
+      this.audioManager.update();
+    }
 
     this.renderer.render(this.scene, this.camera);
     this.animationFrameId = requestAnimationFrame(this.animate);

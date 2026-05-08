@@ -60,6 +60,8 @@ export class PlayerController {
     this.rayOrigin = new THREE.Vector2(0, 0);
 
     this.domElement.addEventListener('click', this.onRequestLock);
+    this.controls.addEventListener('lock', this.onControlsLock);
+    this.controls.addEventListener('unlock', this.onControlsUnlock);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
   }
@@ -73,8 +75,14 @@ export class PlayerController {
     this.updateRaycastTarget();
   }
 
+  public requestLock(): void {
+    this.controls.lock();
+  }
+
   public dispose(): void {
     this.domElement.removeEventListener('click', this.onRequestLock);
+    this.controls.removeEventListener('lock', this.onControlsLock);
+    this.controls.removeEventListener('unlock', this.onControlsUnlock);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     this.controls.disconnect();
@@ -82,6 +90,14 @@ export class PlayerController {
 
   private readonly onRequestLock = (): void => {
     this.controls.lock();
+  };
+
+  private readonly onControlsLock = (): void => {
+    window.dispatchEvent(new CustomEvent('gameResumed'));
+  };
+
+  private readonly onControlsUnlock = (): void => {
+    window.dispatchEvent(new CustomEvent('gamePaused'));
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
