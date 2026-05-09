@@ -4,6 +4,7 @@ import type { DoorConfig } from './Door';
 import { FilePOI } from './FilePOI';
 import type { FilePOIConfig } from './FilePOI';
 import { createLabelSprite, disposeLabelSprite } from './LabelSprite';
+import droneUrl from '../assets/models/drone.glb?url';
 
 // Layout: 4 rooms in sequence along -Z. Corridor x=-6..6 (width 12).
 // ENTRADA z=0..12 | CLIENTES z=-10..0 | SOPORTE z=-20..-10 | RED INTERNA z=-30..-20
@@ -39,6 +40,8 @@ export class WorldBuilder {
   private readonly roomLabels: THREE.Sprite[] = [];
   private readonly doors = new Map<string, Door>();
   private readonly filePOIs: FilePOI[] = [];
+  private drone: THREE.Group | null = null;
+  private droneTime = 0;
 
   public constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -60,6 +63,8 @@ export class WorldBuilder {
       this.filePOIs.push(new FilePOI(this.scene, config, interactables));
     }
 
+    void this.loadDrone();
+
     return { interactables, collidables };
   }
 
@@ -71,12 +76,50 @@ export class WorldBuilder {
     for (const door of this.doors.values()) {
       door.update(deltaTime);
     }
+
+    if (this.drone !== null) {
+      this.droneTime += deltaTime;
+      this.drone.position.y = 1.8 + Math.sin(this.droneTime * 1.4) * 0.12;
+      this.drone.rotation.y += deltaTime * 0.4;
+    }
   }
 
   public dispose(): void {
     for (const sprite of this.roomLabels) disposeLabelSprite(sprite);
     for (const door of this.doors.values()) door.dispose();
     for (const poi of this.filePOIs) poi.dispose();
+
+    if (this.drone !== null) {
+      this.scene.remove(this.drone);
+      this.drone.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const m of mats) m.dispose();
+        }
+      });
+      this.drone = null;
+    }
+  }
+
+  private async loadDrone(): Promise<void> {
+    try {
+      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+      const loader = new GLTFLoader();
+      const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
+        loader.load(droneUrl, resolve, undefined, reject);
+      });
+
+      this.drone = gltf.scene;
+      this.drone.position.set(0, 1.8, 5);
+      this.drone.scale.setScalar(0.008);
+      this.drone.traverse((child) => {
+        if (child instanceof THREE.Mesh) child.castShadow = true;
+      });
+      this.scene.add(this.drone);
+    } catch (err) {
+      console.warn('drone.glb no se pudo cargar:', err);
+    }
   }
 
   private buildFloor(): void {
