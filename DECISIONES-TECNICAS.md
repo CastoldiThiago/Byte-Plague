@@ -49,6 +49,8 @@ Registro vivo de decisiones de diseño y arquitectura. Cada entrada documenta el
 | `doorUnlocked` | TerminalUI | SceneManager | `{ poiId: string }` |
 | `commandSuccess` | TerminalUI | AudioManager | — |
 | `commandFail` | TerminalUI | AudioManager | — |
+| `gamePaused` | PlayerController (onControlsUnlock) | PauseMenu, SceneManager | — |
+| `gameResumed` | PlayerController (onControlsLock) | PauseMenu, SceneManager | — |
 
 ### [2026-04-26] Rollback de arquitectura para enfoque en nivel 1 (phishing -> red interna)
 
@@ -129,6 +131,34 @@ Registro vivo de decisiones de diseño y arquitectura. Cada entrada documenta el
 `SceneManager.ts` pasó de 387 a ~110 líneas. `main.ts` pasó de 64 a ~30 líneas. `CommandEngine.ts` pasó de 160 a ~40 líneas.  
 **Alternativas descartadas:** Mantener el monolito y solo agregar comentarios (escala mal); separar por sistema ECS (overkill para el scope actual).  
 **Consecuencias:** Agregar una nueva habitación o puerta requiere solo extender `DOOR_CONFIGS` / `FILE_POI_CONFIGS` en `WorldBuilder.ts`. Integrar un modelo GLTF de Sketchfab se hace via `AssetLoader.load({ models: { nombre: url } })`. Las constantes de layout del mundo viven en `WorldBuilder.ts` como arrays de config, no como código imperativo disperso.
+
+### [2026-05-08] Menú de pausa con ESC sin romper el PointerLock flow
+
+**Contexto:** El browser siempre libera el pointer lock al presionar ESC — no hay forma de interceptarlo. Necesitábamos un menú de pausa que aprovechara ese comportamiento en lugar de pelearlo.  
+**Decisión:** `PauseMenu` en `src/ui/PauseMenu.ts` escucha `gamePaused`/`gameResumed` (emitidos por `PlayerController` en `onControlsUnlock`/`onControlsLock`) y muestra/oculta el overlay. Para reanudar, el botón y la tecla ESC llaman a `lockFn()` — un callback directo `() => sceneManager.requestPointerLock()` pasado en el constructor — garantizando que `requestPointerLock()` se ejecute dentro del handler nativo (requisito de Chrome). Guard de 250ms en el handler de ESC para evitar que el mismo ESC que causó la pausa la cierre inmediatamente. `SceneManager` setea `isPaused` en esos mismos eventos y, mientras está pausado, salta los `update()` de todos los sistemas pero sigue renderizando.  
+**Alternativas descartadas:** Llamar `requestPointerLock()` via `CustomEvent` encadenado desde el click (rechazado por Chrome — ya no cuenta como gesto nativo); un overlay con `pointer-events: auto` que bloquee el canvas (no era necesario con el flow actual).  
+**Consecuencias:** El patrón `lockFn: () => void` como callback directo es el que hay que replicar en cualquier otro overlay que necesite rearmar el pointer lock. Si se agrega un menú de inicio, usar el mismo patrón.
+
+### [2026-05-08] Terminal (TerminalUI) cierra con E en lugar de ESC — orden de registro crítico
+
+**Contexto:** El terminal de comandos se abría con E y cerraba con ESC. Cuando se agregó el menú de pausa, ESC pasó a estar reservado para pausar. Colisionaban: abrir el menú de pausa al intentar cerrar el terminal.  
+**Decisión:** `TerminalUI.onKeyDown` cierra con `KeyE` (no ESC) cuando el panel está abierto, y llama `event.stopImmediatePropagation()` para que `InteractionManager` no reciba el mismo evento E y reabra el terminal. Para que `stopImmediatePropagation` funcione, `TerminalUI` debe registrar su listener `window.addEventListener('keydown', ...)` **antes** que `InteractionManager`. Esto se garantiza construyendo `new TerminalUI()` antes de `new InteractionManager()` en `SceneManager`.  
+**Alternativas descartadas:** Flag global `terminalIsOpen` leído por InteractionManager (acoplamiento implícito); usar `event.stopPropagation()` en lugar de `stopImmediatePropagation()` (no detiene listeners del mismo target registrados después).  
+**Consecuencias:** El orden de construcción en `SceneManager` es load-bearing. Si se refactoriza la inicialización, hay que preservar que `TerminalUI` se instancie antes que `InteractionManager`.
+
+### [2026-05-08] Fix: poiFocus siempre se despacha con distancia actualizada
+
+**Contexto:** Si el jugador apuntaba a un POI desde lejos (recibía "Acercate para interactuar") y luego caminaba hacia él sin mover la vista, `updateRaycastTarget` detectaba `firstInteractiveObject === this.currentTarget` y hacía early return — `poiFocus` no se volvía a emitir, la distancia no se actualizaba, y el tooltip nunca cambiaba a "interactuar".  
+**Decisión:** Se eliminó el early return por mismo target en `PlayerController.updateRaycastTarget()`. Ahora `poiFocus` se despacha en cada frame mientras el jugador mira al POI, con la distancia calculada en ese frame. `InteractionManager` actualiza su estado interno de distancia en cada `poiFocus`.  
+**Alternativas descartadas:** Emitir `poiDistanceUpdate` como evento separado (más eventos para el mismo problema); recalcular la distancia en `InteractionManager` de forma independiente (duplicación de lógica).  
+**Consecuencias:** `poiFocus` pasa de ser un evento de "cambio de target" a un evento de "frame con target activo". Si algún sistema escucha `poiFocus` y asume que solo se emite al enfocar un nuevo objeto, hay que revisarlo.
+
+### [2026-05-08] Drone decorativo con hover y rotación en sala de entrada
+
+**Contexto:** La sala de entrada (z=0..12) estaba visualmente vacía. Se quería agregar un elemento ambiental que reforzara la atmósfera sin afectar el gameplay.  
+**Decisión:** `WorldBuilder` carga `src/assets/models/drone.glb` de forma asíncrona con `GLTFLoader` usando el sufijo `?url` de Vite para importar el path del binario. El modelo se coloca en `(0, 1.8, 5)`, escala `0.008` (el modelo está en unidades de milímetros), y se anima cada frame con hover senoidal (`y = 1.8 + sin(t*1.4)*0.12`) y rotación en Y continua. Si la carga falla, se imprime un `console.warn` y el juego continúa sin el modelo.  
+**Alternativas descartadas:** Cargar el modelo en `AssetLoader` centralizado (válido, pero innecesario para un único modelo decorativo sin dependencias); escala mayor (el modelo a escala 1.0 ocupa toda la habitación — el factor 0.008 se determinó empíricamente).  
+**Consecuencias:** Assets `.glb` en `src/assets/` con `?url` son copiados al bundle por Vite. El drone es puramente decorativo — no tiene colisión ni interacción. Si el modelo cambia de origen (ej: Sketchfab con escala en metros), hay que revisar la escala.
 
 ### [2026-04-26] Apertura visual de puertas desacoplada via evento doorUnlocked
 
