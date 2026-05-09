@@ -32,9 +32,40 @@ Con privilegios elevados, el jugador debe localizar y cifrar archivos objetivo e
 
 ## Arquitectura actual
 
-- `src/core/SceneManager.ts` — orquesta toda la escena, loop de animación
-- `src/gameplay/player/PlayerController.ts` — WASD + PointerLock + raycaster
-- `src/main.ts` — entrada, crea SceneManager, HTML del HUD
+### Entrada
+- `src/main.ts` — punto de entrada: crea SceneManager, HUDManager, PauseMenu e inyecta el HTML del HUD
+
+### Core (infraestructura)
+- `src/core/SceneManager.ts` — orquesta la escena, loop de animación (`animate()`), pausa, construye y conecta todos los subsistemas
+- `src/core/AudioManager.ts` — sonido ambiental y efectos de audio
+- `src/core/GameStateManager.ts` — máquina de estados del juego (playing / paused / game-over), timer de nivel, nivel de alerta
+- `src/core/InteractionManager.ts` — escucha `poiFocus`/`poiBlur` y la tecla E; despacha `poiInteract` al sistema correcto
+- `src/core/AssetLoader.ts` — carga centralizada de assets (texturas, modelos)
+
+### Gameplay (lógica de juego)
+- `src/gameplay/player/PlayerController.ts` — movimiento WASD, PointerLock, raycasting hacia interactuables, colisión AABB, despacha `poiFocus`/`poiBlur`/`gamePaused`/`gameResumed`
+- `src/gameplay/AntivirusAgent.ts` — agente de patrulla con detección por zona; sube el nivel de alerta si el jugador está en zona de red
+- `src/gameplay/CommandEngine.ts` — ejecuta los comandos que elige el jugador en los archivos (lógica de resultado, narrativa)
+
+### World (construcción del mundo)
+- `src/world/WorldBuilder.ts` — construye habitaciones, paredes, luces, puertas, POIs de archivos, carga el drone decorativo
+- `src/world/Door.ts` — lógica de apertura/cierre animada de puertas
+- `src/world/FilePOI.ts` — objeto interactuable tipo archivo (mesh + label + userData)
+- `src/world/LabelSprite.ts` — helper para crear sprites de texto 2D en el mundo 3D
+
+### UI
+- `src/ui/HUDManager.ts` — actualiza barra de alerta, texto de estado y timer en el HUD
+- `src/ui/TerminalUI.ts` — panel de comandos no bloqueante (abre/cierra con E, opciones 1/2/3)
+- `src/ui/PauseMenu.ts` — overlay de pausa (abre/cierra con ESC, botón Reanudar)
+- `src/ui/NarrativeScreen.ts` — pantalla de narrativa/intro entre niveles
+
+### Efectos y shaders
+- `src/effects/DataParticles.ts` — partículas ambientales tipo "datos flotantes"
+- `src/shaders/GlitchMaterial.ts` — material con efecto glitch para elementos de UI 3D
+
+### Datos y tipos
+- `src/data/scenarios.ts` — definición de escenarios: textos narrativos, comandos disponibles por archivo, resultados
+- `src/types/game.ts` — tipos e interfaces compartidos entre sistemas
 
 ## Convenciones de código
 
