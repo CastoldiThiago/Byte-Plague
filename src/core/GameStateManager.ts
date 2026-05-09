@@ -17,6 +17,12 @@ export class GameStateManager {
     window.addEventListener('gameOver', this.stopTimer);
   }
 
+  public dispose(): void {
+    this.stopTimer();
+    window.removeEventListener('gameOver', this.stopTimer);
+    GameStateManager.instance = null;
+  }
+
   public static getInstance(): GameStateManager {
     GameStateManager.instance ??= new GameStateManager();
     return GameStateManager.instance;

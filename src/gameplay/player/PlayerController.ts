@@ -85,6 +85,9 @@ export class PlayerController {
     this.controls.removeEventListener('unlock', this.onControlsUnlock);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    if (document.pointerLockElement === this.domElement) {
+      document.exitPointerLock();
+    }
     this.controls.disconnect();
   }
 

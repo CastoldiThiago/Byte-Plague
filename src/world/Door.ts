@@ -71,5 +71,8 @@ export class Door {
 
   public dispose(): void {
     disposeLabelSprite(this.labelSprite);
+    this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+    this.mesh.removeFromParent();
   }
 }

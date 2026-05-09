@@ -21,26 +21,33 @@ export class SceneManager {
   private animationFrameId: number | null = null;
   private isPaused = false;
 
-  private readonly onGameOver = (): void => {
+  private gameOverHandler = (): void => {
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
   };
 
-  private readonly onGamePaused = (): void => {
+  private gamePausedHandler = (): void => {
     this.isPaused = true;
     GameStateManager.getInstance().setPaused(true);
   };
 
-  private readonly onGameResumed = (): void => {
+  private gameResumedHandler = (): void => {
     this.isPaused = false;
     GameStateManager.getInstance().setPaused(false);
   };
 
-  private readonly onDoorUnlocked = (event: Event): void => {
+  private doorUnlockedHandler = (event: Event): void => {
     const { poiId } = (event as CustomEvent<{ poiId: string }>).detail;
     this.worldBuilder.openDoor(poiId);
+  };
+
+  private resizeHandler = (): void => {
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
   };
 
   public constructor(container: HTMLElement) {
@@ -81,11 +88,11 @@ export class SceneManager {
     this.audioManager = new AudioManager(this.camera);
 
     GameStateManager.getInstance();
-    window.addEventListener('resize', this.onResize);
-    window.addEventListener('gameOver', this.onGameOver);
-    window.addEventListener('doorUnlocked', this.onDoorUnlocked);
-    window.addEventListener('gamePaused', this.onGamePaused);
-    window.addEventListener('gameResumed', this.onGameResumed);
+    window.addEventListener('resize', this.resizeHandler);
+    window.addEventListener('gameOver', this.gameOverHandler);
+    window.addEventListener('doorUnlocked', this.doorUnlockedHandler);
+    window.addEventListener('gamePaused', this.gamePausedHandler);
+    window.addEventListener('gameResumed', this.gameResumedHandler);
   }
 
   public start(): void {
@@ -102,21 +109,22 @@ export class SceneManager {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    window.removeEventListener('resize', this.onResize);
-    window.removeEventListener('gameOver', this.onGameOver);
-    window.removeEventListener('doorUnlocked', this.onDoorUnlocked);
-    window.removeEventListener('gamePaused', this.onGamePaused);
-    window.removeEventListener('gameResumed', this.onGameResumed);
+    window.removeEventListener('resize', this.resizeHandler);
+    window.removeEventListener('gameOver', this.gameOverHandler);
+    window.removeEventListener('doorUnlocked', this.doorUnlockedHandler);
+    window.removeEventListener('gamePaused', this.gamePausedHandler);
+    window.removeEventListener('gameResumed', this.gameResumedHandler);
     this.audioManager.dispose();
     this.playerController.dispose();
     this.interactionManager.dispose();
     this.terminalUI.dispose();
     this.narrativeScreen.dispose();
     this.worldBuilder.dispose();
+    GameStateManager.getInstance().dispose();
     this.renderer.dispose();
   }
 
-  private readonly animate = (): void => {
+  private animate = (): void => {
     this.timer.update();
 
     if (!this.isPaused) {
@@ -130,12 +138,7 @@ export class SceneManager {
     this.animationFrameId = requestAnimationFrame(this.animate);
   };
 
-  private readonly onResize = (): void => {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-  };
+
 
   private setupLights(): void {
     this.scene.add(new THREE.HemisphereLight(0xf0f4ff, 0x221f1a, 0.5));
@@ -144,7 +147,7 @@ export class SceneManager {
     const keyLight = new THREE.DirectionalLight(0xfff3d3, 1.1);
     keyLight.position.set(4, 16, -8);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.mapSize.set(1024, 1024);
     keyLight.shadow.camera.left = -12;
     keyLight.shadow.camera.right = 12;
     keyLight.shadow.camera.top = 20;
