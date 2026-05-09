@@ -34,7 +34,7 @@ export class PlayerController {
   private readonly moveDirection = new THREE.Vector3();
   private readonly forwardDirection = new THREE.Vector3();
   private readonly rightDirection = new THREE.Vector3();
-  private readonly colliderBox = new THREE.Box3();
+  private readonly collisionRaycaster = new THREE.Raycaster();
 
   private readonly input: InputState = {
     forward: false,
@@ -239,21 +239,23 @@ export class PlayerController {
   }
 
   private willCollide(x: number, z: number): boolean {
-    for (const collider of this.collidables) {
-      if (collider.userData.ignoreCollision === true) {
-        continue;
-      }
+    const playerPos = this.controls.object.position;
+    const dx = x - playerPos.x;
+    const dz = z - playerPos.z;
+    const moveDist = Math.sqrt(dx * dx + dz * dz);
+    if (moveDist < 1e-6) return false;
 
-      this.colliderBox.setFromObject(collider);
+    const direction = new THREE.Vector3(dx, 0, dz).normalize();
+    // Tres alturas: ojos, cintura, rodillas
+    const yOffsets = [0, -0.7, -1.4];
 
-      if (
-        x > this.colliderBox.min.x - this.playerRadius
-        && x < this.colliderBox.max.x + this.playerRadius
-        && z > this.colliderBox.min.z - this.playerRadius
-        && z < this.colliderBox.max.z + this.playerRadius
-      ) {
-        return true;
-      }
+    for (const yOff of yOffsets) {
+      const origin = new THREE.Vector3(playerPos.x, playerPos.y + yOff, playerPos.z);
+      this.collisionRaycaster.set(origin, direction);
+      this.collisionRaycaster.near = 0.05;
+      this.collisionRaycaster.far = moveDist + this.playerRadius;
+      const hits = this.collisionRaycaster.intersectObjects(this.collidables, true);
+      if (hits.length > 0) return true;
     }
 
     return false;
