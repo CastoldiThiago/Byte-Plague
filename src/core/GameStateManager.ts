@@ -1,3 +1,5 @@
+import { isDevMode } from './DevMode';
+
 export class GameStateManager {
   private static instance: GameStateManager | null = null;
 
@@ -13,7 +15,9 @@ export class GameStateManager {
   };
 
   private constructor() {
-    this._timerIntervalId = window.setInterval(this.tickTimer, 1000);
+    if (!isDevMode()) {
+      this._timerIntervalId = window.setInterval(this.tickTimer, 1000);
+    }
     window.addEventListener('gameOver', this.stopTimer);
   }
 
@@ -88,6 +92,8 @@ export class GameStateManager {
     this._timerSeconds = 180;
     this._isPaused = false;
     this.stopTimer();
-    this._timerIntervalId = window.setInterval(this.tickTimer, 1000);
+    if (!isDevMode()) {
+      this._timerIntervalId = window.setInterval(this.tickTimer, 1000);
+    }
   }
 }

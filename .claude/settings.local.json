@@ -6,7 +6,11 @@
       "Bash(git restore *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(dir \"src\\\\assets\\\\models\\\\scifi_scene\")",
+      "Bash(dir \"src\\\\assets\\\\models\\\\scifi_scene\" /s)",
+      "Bash(Copy-Item -Path \"e:\\\\UTN\\\\5TO\\\\Creatividad en Entornos virtuales\\\\Byte_Plague\\\\src\\\\assets\\\\models\\\\scifi_scene\" -Destination \"e:\\\\UTN\\\\5TO\\\\Creatividad en Entornos virtuales\\\\Byte_Plague\\\\public\\\\scifi_scene\" -Recurse -Force)",
+      "PowerShell(Get-ChildItem \"e:\\\\UTN\\\\5TO\\\\Creatividad en Entornos virtuales\\\\Byte_Plague\\\\public\\\\scifi_scene\" -Recurse | ForEach-Object { $_.Name })"
     ]
   }
 }

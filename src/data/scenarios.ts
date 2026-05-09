@@ -29,7 +29,6 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
       '[OK] Acceso concedido a soporte-it.\n\nDentro ves tres pistas:\n- inventario_hosts.csv\n- credenciales_vpn.txt\n- procedimientos.md\n\nEl archivo importante para seguir es credenciales_vpn.txt.',
     conclusion: 'Esta habitacion te entrega credenciales_vpn.txt, necesarias para el acceso final a la red.',
     failOutput: '[ERROR] Intento fallido. El antivirus aumento su nivel de sospecha.',
-    requiredObjectives: ['dato-clientes'],
   },
 
   'puerta-red-interna': {
