@@ -13,10 +13,19 @@ Una vez dentro de la red interna, el jugador debe escalar privilegios para obten
 ### Nivel 3 — Cifrado de archivos objetivo (PENDIENTE)
 Con privilegios elevados, el jugador debe localizar y cifrar archivos objetivo específicos (al estilo ransomware) antes de ser detectado. El antivirus tiene patrullas activas y el riesgo de detección es máximo.
 
+### Flujo actual del nivel 1
+
+1. Spawn en el pasillo de entrada (`-14.80, 1.7, 19.81`)
+2. Barrera `puerta-clientes` → comando `cd clientes` → sala de clientes/soporte
+3. Barrera `puerta-soporte` → comando `cd soporte-it` → sala de soporte (no requiere prerequisito)
+4. En sala de soporte: leer `clientes.db` y `credenciales_vpn.txt` → obtener `dato-clientes` y `dato-soporte`
+5. Barrera `puerta-red-interna` → requiere ambos datos → comando `ssh netops@10.10.0.20` → nivel completo
+
 ### Mecánicas clave ya implementadas
 - Movimiento WASD + PointerLock (mouse look)
-- Puertas que se abren al interactuar (sistema de POIs con raycasting)
-- Archivos interactuables que muestran menú de comandos (terminal no bloqueante)
+- Barreras holográficas en puertas: plano semitransparente animado con scan lines; se abren eligiendo el comando correcto en el terminal
+- Archivos interactuables (FilePOI) que muestran menú de comandos (terminal no bloqueante)
+- Colisión FPS por raycasting: 3 rayos horizontales (ojos / cintura / rodillas), movimiento independiente por eje X/Z para wall-sliding
 - Sistema de alerta con barra de progreso y estados
 - Timer de cuenta regresiva por nivel
 - GameStateManager con estados: playing / paused / game-over
@@ -24,6 +33,7 @@ Con privilegios elevados, el jugador debe localizar y cifrar archivos objetivo e
 - AudioManager para sonido ambiental
 - Drone decorativo animado en sala de entrada (hover + rotación)
 - Menú de pausa (ESC) sin romper el pointer lock flow
+- Modo dev: vuelo (Space sube / Shift baja), noClip, DevPanel con posición en tiempo real y copia al clipboard
 
 ## Stack
 
@@ -43,21 +53,23 @@ Con privilegios elevados, el jugador debe localizar y cifrar archivos objetivo e
 - `src/core/AssetLoader.ts` — carga centralizada de assets (texturas, modelos)
 
 ### Gameplay (lógica de juego)
-- `src/gameplay/player/PlayerController.ts` — movimiento WASD, PointerLock, raycasting hacia interactuables, colisión AABB, despacha `poiFocus`/`poiBlur`/`gamePaused`/`gameResumed`
+- `src/gameplay/player/PlayerController.ts` — movimiento WASD, PointerLock, raycasting hacia interactuables (distancia máx. 5 u + line-of-sight), colisión por raycasting (3 alturas), fly mode y noClip (dev); despacha `poiFocus`/`poiBlur`/`gamePaused`/`gameResumed`
 - `src/gameplay/AntivirusAgent.ts` — agente de patrulla con detección por zona; sube el nivel de alerta si el jugador está en zona de red
 - `src/gameplay/CommandEngine.ts` — ejecuta los comandos que elige el jugador en los archivos (lógica de resultado, narrativa)
 
 ### World (construcción del mundo)
-- `src/world/WorldBuilder.ts` — construye habitaciones, paredes, luces, puertas, POIs de archivos, carga el drone decorativo
-- `src/world/Door.ts` — lógica de apertura/cierre animada de puertas
-- `src/world/FilePOI.ts` — objeto interactuable tipo archivo (mesh + label + userData)
+- `src/world/WorldBuilder.ts` — carga la escena GLTF (`/scifi_scene/scene.gltf`, scale=50, auto-centrado en XZ), crea barreras holográficas en las 3 puertas narrativas y los FilePOIs de sala 2; expone `build()`, `openDoor()`, `update()`, `dispose()`
+- `src/world/HolographicBarrier.ts` — barrera holográfica animada (scan lines en canvas, pulsación de opacidad); al abrirse se elimina de `interactables` y `collidables` para deshabilitar interacción y colisión
+- `src/world/FilePOI.ts` — objeto interactuable tipo archivo (mesh + base + label sprite + userData)
 - `src/world/LabelSprite.ts` — helper para crear sprites de texto 2D en el mundo 3D
+- `src/world/Door.ts` — lógica de apertura/cierre animada (legacy, no usado en nivel 1 con escena GLTF)
 
 ### UI
 - `src/ui/HUDManager.ts` — actualiza barra de alerta, texto de estado y timer en el HUD
 - `src/ui/TerminalUI.ts` — panel de comandos no bloqueante (abre/cierra con E, opciones 1/2/3)
 - `src/ui/PauseMenu.ts` — overlay de pausa (abre/cierra con ESC, botón Reanudar)
 - `src/ui/NarrativeScreen.ts` — pantalla de narrativa/intro entre niveles
+- `src/ui/DevPanel.ts` — panel de desarrollo (solo en dev mode): teleport a zonas, toggle de colisiones, posición en tiempo real + copia al clipboard
 
 ### Efectos y shaders
 - `src/effects/DataParticles.ts` — partículas ambientales tipo "datos flotantes"

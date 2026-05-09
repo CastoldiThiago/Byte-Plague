@@ -198,12 +198,13 @@ Registro vivo de decisiones de diseño y arquitectura. Cada entrada documenta el
 **Alternativas descartadas:** Mantener input libre de texto (mas friccion y ambiguedad para primer nivel); mostrar mas de 3 opciones por puerta (sobrecarga cognitiva); resolver por prompt textual sin botones (peor legibilidad en gameplay FPS).  
 **Consecuencias:** El nivel se vuelve mas legible y rapido de iterar: cada puerta define su micro-desafio en una sola estructura de datos. El balance de dificultad ahora depende de la penalizacion por error y de la secuencia de puertas.
 
-### [2026-04-26] Colision FPS con paredes y puertas mediante AABB en PlayerController
+### [2026-04-26 → 2026-05-09] Colision FPS: AABB reemplazado por raycasting en PlayerController
 
-**Contexto:** El jugador podia atravesar muros, rompiendo la fantasia de casa/habitaciones y permitiendo saltarse la secuencia de puertas.  
-**Decisión:** `PlayerController` recibe `collidables[]` y aplica movimiento por ejes (X/Z) con chequeo AABB (`THREE.Box3.setFromObject`) y radio de jugador fijo. Las puertas abiertas marcan `ignoreCollision` para dejar paso.  
-**Alternativas descartadas:** Fisica externa (ammo/cannon) por costo y dependencia; raycasts por direccion para bloqueo (mas inestable en esquinas).  
-**Consecuencias:** Navegacion mas consistente y controlable para este scope. Si el mapa crece mucho, convendra cachear bounds estaticos para reducir costo de `setFromObject` por frame.
+**Contexto original (AABB):** El jugador podia atravesar muros. Se implementó chequeo AABB con `Box3.setFromObject`. Funcionó con el mundo procedural.  
+**Problema:** Al integrar la escena GLTF (Sketchfab), los bounding boxes de los meshes complejos cubrían habitaciones enteras, bloqueando todo movimiento.  
+**Decisión (2026-05-09):** Se reemplazó AABB por raycasting de colisión. `PlayerController` dispara 3 rayos horizontales desde la posición actual del jugador (alturas: ojos `+0`, cintura `-0.7`, rodillas `-1.4`) en la dirección de movimiento. `near=0.05` evita auto-intersección. `far = moveDist + playerRadius (0.35)`. X y Z se testean de forma independiente para permitir wall-sliding. Si `noClip=true`, `willCollide()` devuelve `false` directamente.  
+**Alternativas descartadas:** Fisica externa ammo/cannon (costo y dependencia); AABB con geometría simplificada separada (requería authoring de colisionadores extra por cada zona GLTF).  
+**Consecuencias:** Navegación correcta con geometría GLTF arbitraria. El array `collidables[]` se comparte con el raycaster de interacción (line-of-sight). Las barreras holográficas se agregan y se eliminan de `collidables[]` dinámicamente al abrirse.
 
 ### [2026-01-xx] AntivirusAgent: patrullaje por waypoints + detección por raycaster
 
@@ -237,45 +238,44 @@ Registro vivo de decisiones de diseño y arquitectura. Cada entrada documenta el
 
 ## Mundo / Zonas
 
-### [2026-01-xx] Sala de archivos en z=-22, x de -8 a 8
+### [2026-05-09] Integración de escena GLTF (scifi_scene) reemplazando mundo procedural
 
-**Contexto:** Necesitábamos ubicar los 5 archivos en una zona claramente separada del resto del mapa.  
-**Decisión:** Fila de 5 cajas en z=-22, separadas 4 unidades en X. Luz verde puntual en (0, 4, -22) para distinguir la zona visualmente.  
-**Consecuencias:** El jugador debe pasar por la línea de bloques en z=-8 (a través de los huecos de 0.7 unidades) para llegar. La zona no tiene paredes propias — queda abierta al mapa principal.
+**Contexto:** El mundo procedural (cajas, muros planos) no comunicaba la ambientación scifi necesaria para el nivel 1.  
+**Decisión:** Se integró `public/scifi_scene/scene.gltf` (asset de Sketchfab). El archivo `.gltf` debe estar en `public/` (no en `src/assets/`) para que Vite lo sirva estáticamente junto a sus referencias relativas (`.bin` y texturas). No se usa el sufijo `?url` — el `GLTFLoader` resuelve rutas relativas en runtime. La escena se carga con `scale.setScalar(50)` para compensar el factor de escala efectivo ~0.023 producido por los transforms anidados de Sketchfab (`Sketchfab_model × .fbx`). Se centra automáticamente en XZ y se ubica el piso en `Y=0` con `Box3.setFromObject` calculado antes de agregar a la escena.  
+**Alternativas descartadas:** Importar como `.glb` (el asset referenciaba binarios externos, no era self-contained); procesar la escena con `?url` de Vite (rompe la resolución de rutas relativas del GLTFLoader).  
+**Consecuencias:** Todo mesh del GLTF se agrega a `collidables[]` automáticamente. El spawn se fijó en `-14.80, 1.7, 19.81` (pasillo de entrada). Si el modelo cambia, los valores de escala y posición de barreras/POIs hardcodeados en `WorldBuilder` deben recalibrarse.
 
-### [2026-01-xx] Zona de red interna en x=16-24
+### [2026-05-09] Layout del nivel 1 con la escena scifi (coordenadas Three.js)
 
-**Contexto:** Los POIs de escaneo de red y SSH necesitaban estar agrupados en un área diferenciada.  
-**Decisión:** Tres bloques decorativos en x=16,20,24 a z=-6. Luz azul puntual en (20, 4, -3). POIs en x=16 y x=24.  
-**Consecuencias:** La zona de red queda a la derecha del mapa principal. El jugador se orienta por el color de la luz.
+**Zonas identificadas (medidas con DevPanel en dev mode):**
+- **Pasillo de entrada**: spawn en `(-14.80, 1.7, 19.81)`, barrera `puerta-clientes` en `(-14.78, z=15.25)`, orientación Z
+- **Sala de clientes / soporte** (entre puerta 1 y puerta 2): corredor curvo; sin objetos interactuables
+- **Barrera puerta-soporte**: `(-23.57, z=12.01)`, orientación X
+- **Sala de soporte** (después de puerta 2): contiene los dos FilePOIs narrativos
+  - `clientes.db` en `(-30.23, z=13.20)` — primera vista al entrar
+  - `credenciales_vpn.txt` en `(-31.27, z=5.59)` — oculto detrás de mueble
+- **Barrera puerta-red-interna**: `(0.97, z=-11.96)`, orientación Z
 
-### [2026-04-26] Primer nivel como casa con habitaciones y puertas-POI
+### [2026-05-09] Barreras holográficas en puertas narrativas
 
-**Contexto:** La narrativa nueva exige representar la computadora del empleado como una casa navegable por habitaciones.  
-**Decisión:** `SceneManager.setupWorld()` crea una planta simple con muros perimetrales e interiores, tres puertas interactivas (`puerta-clientes`, `puerta-soporte`, `puerta-red-interna`) y luces por sector para orientar al jugador.  
-**Alternativas descartadas:** Reusar la sala abierta anterior (no comunica metafora de casa); modelado complejo de interiores desde el inicio (alto costo para prototipo).  
-**Consecuencias:** El espacio queda preparado para escalar por puertas/POIs sin introducir assets externos. Se prioriza lectura espacial y claridad de objetivo sobre detalle visual.
+**Contexto:** Las puertas de la escena GLTF son decorativas (no tienen lógica). Se necesitaba bloqueo visual + colisión + interacción en cada umbral narrativo.  
+**Decisión:** `HolographicBarrier` crea un `PlaneGeometry` con `MeshBasicMaterial` semitransparente (`DoubleSide`, `depthWrite:false`) con textura de scan lines generada en canvas. El plano se posiciona en el centro del umbral medido con DevPanel. Ancho hardcodeado a 6 unidades (suficiente para cubrir el marco con margen). Al llamar `open()`: el mesh se vuelve invisible Y se elimina del array `interactables[]` y `collidables[]` — esto es necesario porque `visible=false` NO deshabilita raycasting en Three.js r184.  
+**Alternativas descartadas:** Auto-detección de umbrales por nombre de mesh GLTF (frágil ante cambios en el modelo); `visible=false` como único mecanismo de deshabilitación (no deshabilita raycasting — bug verificado).  
+**Consecuencias:** Las barreras están hardcodeadas en `WorldBuilder.createBarriers()`. Si cambia el modelo, recalibrar posiciones con DevPanel. El ancho de 6 unidades puede requerir ajuste por puerta si hay huecos entre barrera y marco.
 
-### [2026-04-26] Etiquetas flotantes y archivos POI por habitacion
+### [2026-05-09] Modo dev: fly, noClip y DevPanel
 
-**Contexto:** El jugador necesitaba reconocer rapidamente puertas y elementos clave de cada cuarto sin abrir UI adicional. Tambien se pidio incorporar archivos visibles en cada habitacion.  
-**Decisión:** Se agregaron labels flotantes con `THREE.Sprite + CanvasTexture` para puertas y archivos. Se incorporaron tres archivos interactivos (`archivo-clientes`, `archivo-soporte`, `archivo-red`) con comandos propios en `CommandEngine`.  
-**Alternativas descartadas:** Labels HTML sobrepuestos (sinclusion con oclusion 3D complicada); archivos solo decorativos sin interaccion (menos valor de exploracion).  
-**Consecuencias:** Mejor legibilidad espacial y mas puntos de exploracion temprana. El sistema de comandos ahora soporta puertas y archivos con el mismo flujo de UI.
+**Contexto:** Para calibrar posiciones de barreras y POIs en el mapa GLTF se necesitaba moverse libremente por la escena sin depender de colisiones ni interacciones.  
+**Decisión:** `isDevMode()` detecta el entorno (Vite dev server). En dev mode, `SceneManager` activa `flyMode=true` y `noClip=true` en `PlayerController`, solicita pointer lock con un delay de 250ms, e instancia `DevPanel`. `PlayerController` usa `Space` (subir) y `Shift` (bajar) en fly mode, agregando movimiento vertical directo en `moveDirection.y`. `DevPanel` muestra posición X/Y/Z actualizada cada frame desde `SceneManager.animate()` con un botón de copia al clipboard.  
+**Alternativas descartadas:** Hardcodear posiciones a ojo (error propenso en escenas GLTF con transforms anidados).  
+**Consecuencias:** El Toggle Collisions del DevPanel alterna `noClip` en runtime, permitiendo testear colisiones de barreras sin reiniciar. El DevPanel solo se instancia si `isDevMode()` es true — no hay costo en producción.
 
 ### [2026-04-26] Progresion basada en pistas leidas en archivos
 
-**Contexto:** Abrir habitaciones por si solo no bastaba para que el avance por la PC tuviera sentido narrativo. Hacia falta que leer archivos aportara informacion concreta para desbloquear el salto final.  
-**Decisión:** Los comandos de archivos devuelven pistas persistentes y objetivos de progreso (`dato-clientes`, `dato-soporte`, `dato-red`). La puerta a la red interna exige haber leido los archivos de clientes y soporte antes de aceptar `ssh netops@10.10.0.20`.  
-**Alternativas descartadas:** Hacer que la puerta final se abra solo por recorridos fisicos (sin lectura de archivos); usar texto decorativo sin impacto en objetivos (poco valor jugable).  
-**Consecuencias:** El avance queda encadenado: entrar a una habitacion, leer su archivo y usar esa informacion para el siguiente paso. Esto alinea el gameplay con la fantasia de inspeccionar la PC comprometida.
-
-### [2026-04-26] Secuencia espacial: clientes -> soporte -> red interna
-
-**Contexto:** Las habitaciones y archivos estaban distribuidos de forma poco clara para la narrativa de nivel 1. Habia que asegurar una secuencia espacial legible y coherente con el progreso del jugador.  
-**Decisión:** Se reubicaron los POIs y se agregaron labels de sala para que la exploracion quede ordenada: primero la habitacion de clientes con `clientes.db`, luego soporte IT con `credenciales_vpn.txt` y por ultimo la habitacion final de red interna con `network-map.json`.  
-**Alternativas descartadas:** Mantener la ubicacion abierta y depender solo de textos; mezclar archivos de distintas etapas en una misma habitacion.  
-**Consecuencias:** El nivel se lee como una cadena de descubrimiento: cada archivo habilita la siguiente zona y reduce la ambiguedad espacial del mapa.
+**Contexto:** Abrir habitaciones por si solo no bastaba para que el avance tuviera sentido narrativo.  
+**Decisión:** Los comandos de archivos devuelven objetivos de progreso (`dato-clientes`, `dato-soporte`). La puerta a la red interna (`puerta-red-interna`) exige ambos para aceptar `ssh netops@10.10.0.20`. `puerta-soporte` NO requiere prerequisito — el corredor entre puerta 1 y 2 no tiene objetos, y exigir `dato-clientes` antes bloqueaba el avance.  
+**Alternativas descartadas:** Hacer que la puerta final se abra solo por recorrido físico; encadenar prerequisitos en cada puerta (creaba bloqueo si no había objetos en el corredor intermedio).  
+**Consecuencias:** El avance queda encadenado: explorar sala de soporte → leer dos archivos → abrir puerta 3. `puerta-red-interna.requiredObjectives = ['dato-clientes', 'dato-soporte']` es el único point-of-truth de la condición de paso.
 
 ---
 
