@@ -5,6 +5,8 @@ import { TerminalUI } from '../ui/TerminalUI';
 import { GameStateManager } from './GameStateManager';
 import { AudioManager } from './AudioManager';
 import { NarrativeScreen } from '../ui/NarrativeScreen';
+import { isDevMode } from './DevMode';
+import { DevPanel } from '../ui/DevPanel';
 import { WorldBuilder } from '../world/WorldBuilder';
 
 export class SceneManager {
@@ -16,10 +18,11 @@ export class SceneManager {
   private readonly playerController: PlayerController;
   private readonly interactionManager: InteractionManager;
   private readonly terminalUI: TerminalUI;
-  private readonly narrativeScreen: NarrativeScreen;
+  private readonly narrativeScreen: NarrativeScreen | null;
   private readonly audioManager: AudioManager;
   private animationFrameId: number | null = null;
   private isPaused = false;
+  private devPanel: DevPanel | null = null;
 
   private gameOverHandler = (): void => {
     if (this.animationFrameId !== null) {
@@ -36,6 +39,11 @@ export class SceneManager {
   private gameResumedHandler = (): void => {
     this.isPaused = false;
     GameStateManager.getInstance().setPaused(false);
+  };
+
+  private levelSpawnReadyHandler = (event: Event): void => {
+    const { x, y, z } = (event as CustomEvent<{ x: number; y: number; z: number }>).detail;
+    this.playerController.teleportTo(new THREE.Vector3(x, y, z));
   };
 
   private doorUnlockedHandler = (event: Event): void => {
@@ -84,7 +92,7 @@ export class SceneManager {
     // para que stopImmediatePropagation() funcione al cerrar con E
     this.terminalUI = new TerminalUI();
     this.interactionManager = new InteractionManager();
-    this.narrativeScreen = new NarrativeScreen();
+    this.narrativeScreen = isDevMode() ? null as any : new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
 
     GameStateManager.getInstance();
@@ -93,6 +101,25 @@ export class SceneManager {
     window.addEventListener('doorUnlocked', this.doorUnlockedHandler);
     window.addEventListener('gamePaused', this.gamePausedHandler);
     window.addEventListener('gameResumed', this.gameResumedHandler);
+    window.addEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
+
+    this.playerController.teleportTo(this.worldBuilder.getSpawnPoint());
+
+    if (isDevMode()) {
+      // In dev mode, skip narrative and ensure the game is not paused by intro
+      GameStateManager.getInstance().setPaused(false);
+      // request pointer lock automatically for faster testing
+      setTimeout(() => this.requestPointerLock(), 250);
+      // create dev panel and wire simple callbacks
+      this.devPanel = new DevPanel({
+        teleport: (x, y, z) => {
+          this.playerController.teleportTo(new THREE.Vector3(x, y, z));
+        },
+        toggleColliders: (ignore) => {
+          this.playerController.setIgnoreAllCollisions(ignore);
+        },
+      });
+    }
   }
 
   public start(): void {
@@ -114,11 +141,13 @@ export class SceneManager {
     window.removeEventListener('doorUnlocked', this.doorUnlockedHandler);
     window.removeEventListener('gamePaused', this.gamePausedHandler);
     window.removeEventListener('gameResumed', this.gameResumedHandler);
+    window.removeEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
+    if (this.devPanel) this.devPanel.dispose();
     this.audioManager.dispose();
     this.playerController.dispose();
     this.interactionManager.dispose();
     this.terminalUI.dispose();
-    this.narrativeScreen.dispose();
+    if (this.narrativeScreen) this.narrativeScreen.dispose();
     this.worldBuilder.dispose();
     GameStateManager.getInstance().dispose();
     this.renderer.dispose();

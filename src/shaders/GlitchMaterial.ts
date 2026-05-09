@@ -62,8 +62,6 @@ const fragmentShader = /* glsl */`
 `;
 
 export class GlitchMaterial extends THREE.ShaderMaterial {
-  private elapsedTime = 0;
-
   public constructor() {
     super({
       uniforms: {

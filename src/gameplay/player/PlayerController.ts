@@ -91,6 +91,17 @@ export class PlayerController {
     this.controls.disconnect();
   }
 
+  // Dev helpers
+  public teleportTo(position: THREE.Vector3): void {
+    this.controls.object.position.set(position.x, position.y, position.z);
+  }
+
+  public setIgnoreAllCollisions(ignore: boolean): void {
+    for (const collider of this.collidables) {
+      collider.userData.ignoreCollision = !!ignore;
+    }
+  }
+
   private readonly onRequestLock = (): void => {
     this.controls.lock();
   };
