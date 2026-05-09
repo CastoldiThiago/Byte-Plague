@@ -40,7 +40,10 @@ export class InteractionManager {
     const { poiId, poiLabel, distance } = (event as CustomEvent<{ poiId: string; poiLabel?: string; distance: number }>).detail;
     this.activePoiId = poiId;
     this.activePoiDistance = distance;
-    (this.tooltip.querySelector('.poi-name') as HTMLElement).textContent = poiLabel ?? poiId;
+    const nameElement = this.tooltip.querySelector('.poi-name') as HTMLElement | null;
+    if (nameElement !== null) {
+      nameElement.textContent = poiLabel ?? poiId;
+    }
     this.refreshHint();
     this.tooltip.classList.add('visible');
   };

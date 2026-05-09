@@ -29,7 +29,11 @@ export function createLabelSprite(text: string): THREE.Sprite {
 
 export function disposeLabelSprite(sprite: THREE.Sprite): void {
   const material = sprite.material as THREE.SpriteMaterial;
+  const canvas = (material.map?.source.data as HTMLCanvasElement | undefined);
   material.map?.dispose();
   material.dispose();
   sprite.removeFromParent();
+  if (canvas instanceof HTMLCanvasElement) {
+    canvas.remove();
+  }
 }

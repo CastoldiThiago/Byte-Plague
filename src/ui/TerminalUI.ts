@@ -77,6 +77,8 @@ export class TerminalUI {
     const scenario = this.commandEngine.getScenario(poiId);
     if (scenario === null) return;
 
+    this.feedbackPanel.innerHTML = '';
+    this.historyIndex = -1;
     this.currentPoiId = poiId;
     this.currentChoices = scenario.choices;
     this.popupTitle.textContent = scenario.label;

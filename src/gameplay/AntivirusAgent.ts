@@ -31,6 +31,7 @@ export class AntivirusAgent {
   private waypointIndex = 0;
   private passiveCheckTimer = 0;
   private started = false;
+  private audioReady = false;
 
   public constructor(
     scene: THREE.Scene,
@@ -66,6 +67,7 @@ export class AntivirusAgent {
       '/audio/antivirus_hum.mp3',
       (buffer) => {
         this.hum.setBuffer(buffer);
+        this.audioReady = true;
         if (this.started) this.hum.play();
       },
       undefined,
@@ -76,7 +78,7 @@ export class AntivirusAgent {
   public update(deltaTime: number): void {
     if (!this.started) {
       this.started = true;
-      if (this.hum.buffer !== null) this.hum.play();
+      if (this.audioReady && this.hum.buffer !== null) this.hum.play();
     }
 
     const gs = GameStateManager.getInstance();
