@@ -106,17 +106,16 @@ export class SceneManager {
     this.playerController.teleportTo(this.worldBuilder.getSpawnPoint());
 
     if (isDevMode()) {
-      // In dev mode, skip narrative and ensure the game is not paused by intro
       GameStateManager.getInstance().setPaused(false);
-      // request pointer lock automatically for faster testing
+      this.playerController.setFlyMode(true);
+      this.playerController.setNoClip(true);
       setTimeout(() => this.requestPointerLock(), 250);
-      // create dev panel and wire simple callbacks
       this.devPanel = new DevPanel({
         teleport: (x, y, z) => {
           this.playerController.teleportTo(new THREE.Vector3(x, y, z));
         },
         toggleColliders: (ignore) => {
-          this.playerController.setIgnoreAllCollisions(ignore);
+          this.playerController.setNoClip(ignore);
         },
       });
     }
@@ -161,6 +160,11 @@ export class SceneManager {
       this.playerController.update(deltaTime);
       this.worldBuilder.update(deltaTime);
       this.audioManager.update();
+    }
+
+    if (this.devPanel !== null) {
+      const p = this.camera.position;
+      this.devPanel.setPosition(p.x, p.y, p.z);
     }
 
     this.renderer.render(this.scene, this.camera);

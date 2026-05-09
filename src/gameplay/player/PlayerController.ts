@@ -20,6 +20,8 @@ interface InputState {
   backward: boolean;
   left: boolean;
   right: boolean;
+  up: boolean;
+  down: boolean;
 }
 
 export class PlayerController {
@@ -41,11 +43,15 @@ export class PlayerController {
     backward: false,
     left: false,
     right: false,
+    up: false,
+    down: false,
   };
 
   private readonly moveSpeed = 6;
   private readonly playerRadius = 0.35;
   private currentTarget: THREE.Object3D | null = null;
+  private flyMode = false;
+  private noClip = false;
 
   public constructor(options: PlayerControllerOptions) {
     this.camera = options.camera;
@@ -96,10 +102,16 @@ export class PlayerController {
     this.controls.object.position.set(position.x, position.y, position.z);
   }
 
+  public setFlyMode(enabled: boolean): void {
+    this.flyMode = enabled;
+  }
+
+  public setNoClip(enabled: boolean): void {
+    this.noClip = enabled;
+  }
+
   public setIgnoreAllCollisions(ignore: boolean): void {
-    for (const collider of this.collidables) {
-      collider.userData.ignoreCollision = !!ignore;
-    }
+    this.noClip = ignore;
   }
 
   private readonly onRequestLock = (): void => {
@@ -116,71 +128,70 @@ export class PlayerController {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     switch (event.code) {
-      case 'KeyW':
-        this.input.forward = true;
+      case 'KeyW': this.input.forward = true; break;
+      case 'KeyS': this.input.backward = true; break;
+      case 'KeyA': this.input.left = true; break;
+      case 'KeyD': this.input.right = true; break;
+      case 'Space':
+        if (this.flyMode) { event.preventDefault(); this.input.up = true; }
         break;
-      case 'KeyS':
-        this.input.backward = true;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        if (this.flyMode) this.input.down = true;
         break;
-      case 'KeyA':
-        this.input.left = true;
-        break;
-      case 'KeyD':
-        this.input.right = true;
-        break;
-      default:
-        break;
+      default: break;
     }
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     switch (event.code) {
-      case 'KeyW':
-        this.input.forward = false;
+      case 'KeyW': this.input.forward = false; break;
+      case 'KeyS': this.input.backward = false; break;
+      case 'KeyA': this.input.left = false; break;
+      case 'KeyD': this.input.right = false; break;
+      case 'Space': this.input.up = false; break;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        this.input.down = false;
         break;
-      case 'KeyS':
-        this.input.backward = false;
-        break;
-      case 'KeyA':
-        this.input.left = false;
-        break;
-      case 'KeyD':
-        this.input.right = false;
-        break;
-      default:
-        break;
+      default: break;
     }
   };
+
+  private readonly maxFocusDistance = 5.0;
 
   private updateRaycastTarget(): void {
     this.raycaster.setFromCamera(this.rayOrigin, this.camera);
 
-    const intersections = this.raycaster.intersectObjects(this.interactables, true);
+    const hits = this.raycaster.intersectObjects(this.interactables, true);
 
-    if (intersections.length === 0) {
+    const blur = (): void => {
       if (this.currentTarget !== null) {
         this.currentTarget = null;
         window.dispatchEvent(new CustomEvent('poiBlur'));
       }
-      return;
-    }
+    };
 
-    const firstInteractiveObject = this.findInteractiveAncestor(intersections[0].object);
+    if (hits.length === 0) { blur(); return; }
 
-    if (firstInteractiveObject === null) {
-      if (this.currentTarget !== null) {
-        this.currentTarget = null;
-        window.dispatchEvent(new CustomEvent('poiBlur'));
-      }
-      return;
-    }
+    const hit = hits[0]!;
+    const interactive = this.findInteractiveAncestor(hit.object);
+    if (interactive === null) { blur(); return; }
 
-    this.currentTarget = firstInteractiveObject;
+    // Descartar si está muy lejos
+    if (hit.distance > this.maxFocusDistance) { blur(); return; }
 
-    const poiId = String(this.currentTarget.userData.poiId ?? this.currentTarget.name ?? 'unknown-poi');
-    const poiLabel = String(this.currentTarget.userData.poiLabel ?? poiId);
-    const distance = this.camera.position.distanceTo(this.currentTarget.getWorldPosition(new THREE.Vector3()));
-    window.dispatchEvent(new CustomEvent<FocusDetail>('poiFocus', { detail: { poiId, poiLabel, distance } }));
+    // Line-of-sight: si un colisionable (pared) está entre la cámara y el objeto, ignorar
+    const blockers = this.raycaster.intersectObjects(this.collidables, true);
+    if (blockers.length > 0 && blockers[0]!.distance < hit.distance - 0.1) { blur(); return; }
+
+    this.currentTarget = interactive;
+
+    const poiId = String(interactive.userData.poiId ?? interactive.name ?? 'unknown-poi');
+    const poiLabel = String(interactive.userData.poiLabel ?? poiId);
+    window.dispatchEvent(new CustomEvent<FocusDetail>('poiFocus', {
+      detail: { poiId, poiLabel, distance: hit.distance },
+    }));
   }
 
   private computeMoveDirection(deltaTime: number): void {
@@ -189,56 +200,45 @@ export class PlayerController {
     this.camera.getWorldDirection(this.forwardDirection);
     this.forwardDirection.y = 0;
 
-    if (this.forwardDirection.lengthSq() < 1e-6) {
-      return;
+    if (this.forwardDirection.lengthSq() >= 1e-6) {
+      this.forwardDirection.normalize();
+      this.rightDirection.crossVectors(this.forwardDirection, this.worldUp).normalize();
+
+      if (this.input.forward) this.moveDirection.add(this.forwardDirection);
+      if (this.input.backward) this.moveDirection.sub(this.forwardDirection);
+      if (this.input.left) this.moveDirection.sub(this.rightDirection);
+      if (this.input.right) this.moveDirection.add(this.rightDirection);
+
+      if (this.moveDirection.lengthSq() > 0) {
+        this.moveDirection.normalize().multiplyScalar(this.moveSpeed * deltaTime);
+      }
     }
 
-    this.forwardDirection.normalize();
-    this.rightDirection.crossVectors(this.forwardDirection, this.worldUp).normalize();
-
-    if (this.input.forward) {
-      this.moveDirection.add(this.forwardDirection);
+    // Vuelo vertical: se agrega después del normalize para no afectar la velocidad horizontal
+    if (this.flyMode) {
+      const vert = (this.input.up ? 1 : 0) - (this.input.down ? 1 : 0);
+      this.moveDirection.y = vert * this.moveSpeed * deltaTime;
     }
-
-    if (this.input.backward) {
-      this.moveDirection.sub(this.forwardDirection);
-    }
-
-    if (this.input.left) {
-      this.moveDirection.sub(this.rightDirection);
-    }
-
-    if (this.input.right) {
-      this.moveDirection.add(this.rightDirection);
-    }
-
-    if (this.moveDirection.lengthSq() === 0) {
-      return;
-    }
-
-    this.moveDirection.normalize().multiplyScalar(this.moveSpeed * deltaTime);
   }
 
   private applyMovementWithCollision(): void {
-    if (this.moveDirection.lengthSq() === 0) {
-      return;
-    }
+    if (this.moveDirection.lengthSq() === 0) return;
 
     const playerPos = this.controls.object.position;
-    const nextX = playerPos.x + this.moveDirection.x;
 
-    if (!this.willCollide(nextX, playerPos.z)) {
-      playerPos.x = nextX;
+    if (this.flyMode && this.moveDirection.y !== 0) {
+      playerPos.y += this.moveDirection.y;
     }
+
+    const nextX = playerPos.x + this.moveDirection.x;
+    if (!this.willCollide(nextX, playerPos.z)) playerPos.x = nextX;
 
     const nextZ = playerPos.z + this.moveDirection.z;
-
-    if (!this.willCollide(playerPos.x, nextZ)) {
-      playerPos.z = nextZ;
-    }
+    if (!this.willCollide(playerPos.x, nextZ)) playerPos.z = nextZ;
   }
 
   private willCollide(x: number, z: number): boolean {
+    if (this.noClip) return false;
     const playerPos = this.controls.object.position;
     const dx = x - playerPos.x;
     const dz = z - playerPos.z;

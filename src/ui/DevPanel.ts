@@ -5,9 +5,11 @@ export type ToggleCollidersCallback = (ignore: boolean) => void;
 
 export class DevPanel {
   private root: HTMLDivElement;
+  private posDisplay!: HTMLElement;
   private collidersIgnored = false;
   private teleportCb: TeleportCallback;
   private toggleCollidersCb: ToggleCollidersCallback;
+  private lastPos = { x: 0, y: 0, z: 0 };
 
   constructor(opts: { teleport: TeleportCallback; toggleColliders: ToggleCollidersCallback }) {
     if (!isDevMode()) throw new Error('DevPanel only allowed in dev mode');
@@ -29,21 +31,35 @@ export class DevPanel {
         <button id="dev-request-lock">Request PointerLock</button>
         <button id="dev-respawn">Respawn</button>
       </div>
+      <div class="dev-pos-box">
+        <span id="dev-pos-label">X 0.00  Y 0.00  Z 0.00</span>
+        <button id="dev-copy-pos" title="Copiar coordenadas">📋</button>
+      </div>
     `;
 
     const style = document.createElement('style');
     style.textContent = `
-      .dev-panel-overlay { position: fixed; right: 12px; top: 12px; background: rgba(0,0,0,0.6); color: #dfe6f0; font-family: sans-serif; padding: 10px; border-radius: 6px; z-index: 9999; min-width: 220px; }
-      .dev-panel-header { font-weight: 700; margin-bottom: 8px; }
+      .dev-panel-overlay { position: fixed; right: 12px; top: 12px; background: rgba(0,0,0,0.6); color: #dfe6f0; font-family: monospace; padding: 10px; border-radius: 6px; z-index: 9999; min-width: 220px; }
+      .dev-panel-header { font-weight: 700; margin-bottom: 8px; font-family: sans-serif; }
       .dev-panel-row { display:flex; gap:6px; margin-bottom:6px; }
-      .dev-panel-overlay button { background:#1b1f2a; border:1px solid #3b4150; color:#dfe6f0; padding:6px 8px; border-radius:4px; cursor:pointer; }
-      .dev-panel-overlay button:hover { filter:brightness(1.1); }
+      .dev-panel-overlay button { background:#1b1f2a; border:1px solid #3b4150; color:#dfe6f0; padding:6px 8px; border-radius:4px; cursor:pointer; font-family:sans-serif; }
+      .dev-panel-overlay button:hover { filter:brightness(1.3); }
+      .dev-pos-box { display:flex; align-items:center; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid #3b4150; }
+      #dev-pos-label { flex:1; font-size:12px; color:#7fefb0; letter-spacing:0.04em; }
+      #dev-copy-pos { padding:4px 6px; font-size:13px; }
     `;
 
     document.head.appendChild(style);
     document.body.appendChild(this.root);
 
+    this.posDisplay = this.root.querySelector('#dev-pos-label')!;
     this.root.addEventListener('click', this.onClick);
+  }
+
+  public setPosition(x: number, y: number, z: number): void {
+    this.lastPos = { x, y, z };
+    this.posDisplay.textContent =
+      `X ${x.toFixed(2)}  Y ${y.toFixed(2)}  Z ${z.toFixed(2)}`;
   }
 
   private readonly onClick = (ev: MouseEvent): void => {
@@ -60,6 +76,15 @@ export class DevPanel {
       this.collidersIgnored = !this.collidersIgnored;
       this.toggleCollidersCb(this.collidersIgnored);
       target.textContent = this.collidersIgnored ? 'Collisions: OFF' : 'Toggle Collisions';
+      return;
+    }
+
+    if (target.id === 'dev-copy-pos') {
+      const { x, y, z } = this.lastPos;
+      const text = `${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`;
+      void navigator.clipboard.writeText(text);
+      target.textContent = '✓';
+      setTimeout(() => { target.textContent = '📋'; }, 1000);
       return;
     }
 
