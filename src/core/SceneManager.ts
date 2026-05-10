@@ -88,9 +88,7 @@ export class SceneManager {
       collidables,
     });
 
-    // TerminalUI debe registrar su keydown ANTES que InteractionManager
-    // para que stopImmediatePropagation() funcione al cerrar con E
-    this.terminalUI = new TerminalUI();
+    this.terminalUI = new TerminalUI(() => this.requestPointerLock());
     this.interactionManager = new InteractionManager();
     this.narrativeScreen = isDevMode() ? null as any : new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
