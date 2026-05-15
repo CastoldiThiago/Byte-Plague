@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { GameStateManager } from '../../core/GameStateManager';
 
 interface PlayerControllerOptions {
   camera: THREE.PerspectiveCamera;
@@ -123,6 +124,7 @@ export class PlayerController {
   };
 
   private readonly onControlsUnlock = (): void => {
+    if (GameStateManager.getInstance().terminalOpen) return;
     window.dispatchEvent(new CustomEvent('gamePaused'));
   };
 

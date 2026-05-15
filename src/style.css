@@ -155,19 +155,21 @@ body,
   color: #a8c0e0;
 }
 
-/* --- Command popup (no overlay, no pointer lock release) --- */
-#command-popup {
+/* --- Terminal panel --- */
+#terminal-panel {
   position: absolute;
-  top: 28%;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 360px;
-  background: rgba(8, 14, 22, 0.9);
-  border: 1px solid rgba(74, 246, 38, 0.65);
+  transform: translate(-50%, -50%);
+  width: 480px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 10, 16, 0.96);
+  border: 1px solid rgba(74, 246, 38, 0.7);
   border-radius: 6px;
   font-family: 'Courier New', Courier, monospace;
   color: #4af626;
-  box-shadow: 0 0 24px rgba(74, 246, 38, 0.12);
+  box-shadow: 0 0 32px rgba(74, 246, 38, 0.14), 0 0 0 1px rgba(74, 246, 38, 0.06);
   backdrop-filter: blur(6px);
   z-index: 10;
   opacity: 0;
@@ -175,134 +177,97 @@ body,
   transition: opacity 0.12s ease;
 }
 
-#command-popup.visible {
+#terminal-panel.visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
-#command-popup-header {
+#terminal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.45rem 0.75rem;
+  padding: 0.5rem 0.85rem;
   background: rgba(74, 246, 38, 0.07);
   border-bottom: 1px solid rgba(74, 246, 38, 0.22);
+  flex-shrink: 0;
 }
 
-#command-popup-title {
-  font-size: 0.78rem;
-  letter-spacing: 0.07em;
-  opacity: 0.9;
-}
-
-#command-popup-esc {
-  font-size: 0.66rem;
-  opacity: 0.4;
-}
-
-#command-popup-choices {
-  padding: 0.55rem 0.75rem 0.7rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.command-choice {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.45rem;
-  border-radius: 4px;
-  border: 1px solid rgba(74, 246, 38, 0.18);
-}
-
-.command-choice-key {
-  font-size: 0.7rem;
-  color: rgba(74, 246, 38, 0.5);
-  min-width: 1.6rem;
-}
-
-.command-choice-cmd {
-  font-size: 0.84rem;
+#terminal-title {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
   color: #9bff4f;
 }
 
-/* --- Feedback panel (right side, non-blocking) --- */
-#feedback-panel {
-  position: absolute;
-  top: 50%;
-  right: 1.8rem;
-  transform: translateY(-50%);
-  width: 310px;
-  max-height: 58vh;
+#terminal-esc-hint {
+  font-size: 0.65rem;
+  opacity: 0.4;
+}
+
+#terminal-history {
+  flex: 1;
   overflow-y: auto;
-  background: rgba(8, 14, 22, 0.84);
-  border: 1px solid rgba(74, 246, 38, 0.38);
-  border-radius: 6px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.78rem;
-  padding: 0.7rem 0.85rem;
-  line-height: 1.65;
-  z-index: 8;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.25s ease;
+  padding: 0.65rem 0.85rem 0.3rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  min-height: 80px;
+  max-height: 340px;
   scrollbar-width: thin;
-  scrollbar-color: #4af62630 transparent;
+  scrollbar-color: rgba(74, 246, 38, 0.2) transparent;
 }
 
-#feedback-panel.visible {
-  opacity: 1;
-}
-
-#feedback-panel.fade-out {
-  opacity: 0;
-}
-
-.feedback-cmd {
+.terminal-cmd {
   color: #4af626;
-  margin-bottom: 0.35rem;
 }
 
-.feedback-output {
+.terminal-output {
   color: #7aad6e;
+  padding-left: 0.4rem;
 }
 
-.feedback-output--ok {
+.terminal-output-ok {
   color: #c8edc8;
 }
 
-.feedback-output--err {
+.terminal-output-err {
   color: #ff6b6b;
 }
 
-.feedback-conclusion {
+.terminal-conclusion {
   color: #7de8ff;
   font-style: italic;
   opacity: 0.88;
+  padding-left: 0.4rem;
 }
 
-.feedback-nav {
+.terminal-spacer {
+  height: 0.5rem;
+}
+
+#terminal-input-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 0.75rem;
-  padding-top: 0.45rem;
-  border-top: 1px solid rgba(74, 246, 38, 0.18);
-  font-size: 0.67rem;
-  letter-spacing: 0.05em;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-top: 1px solid rgba(74, 246, 38, 0.22);
+  background: rgba(74, 246, 38, 0.04);
+  flex-shrink: 0;
 }
 
-.feedback-nav-key {
-  color: rgba(74, 246, 38, 0.7);
+.terminal-prompt {
+  color: #4af626;
+  font-size: 0.85rem;
+  user-select: none;
 }
 
-.feedback-nav-key--off {
-  opacity: 0.2;
-}
-
-.feedback-nav-count {
-  color: rgba(74, 246, 38, 0.45);
+#terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e8ffe8;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  caret-color: #4af626;
 }
 
 /* --- Pause menu overlay --- */

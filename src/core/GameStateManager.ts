@@ -9,6 +9,7 @@ export class GameStateManager {
   private _timerSeconds = 180;
   private _timerIntervalId: number | null = null;
   private _isPaused = false;
+  private _terminalOpen = false;
 
   private static readonly LEVEL_OBJECTIVES: Readonly<Record<number, readonly string[]>> = {
     1: ['acceso-red-interna'],
@@ -37,6 +38,8 @@ export class GameStateManager {
   public get objectivesCompleted(): readonly string[] { return this._objectivesCompleted; }
   public get timerSeconds(): number { return this._timerSeconds; }
   public get isPaused(): boolean { return this._isPaused; }
+  public get terminalOpen(): boolean { return this._terminalOpen; }
+  public setTerminalOpen(value: boolean): void { this._terminalOpen = value; }
 
   public setPaused(paused: boolean): void { this._isPaused = paused; }
 
