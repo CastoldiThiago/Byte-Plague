@@ -7,14 +7,14 @@ const END_PAUSE_MS = 1800;
 const NARRATIVE_INTRO: readonly string[] = [
   'BYTE-PLAGUE v0.1',
   'Entraste a la maquina de un empleado mediante phishing.',
-  'Objetivo del nivel 1: encontrar un camino hacia la red interna.',
+  'Tu objetivo inicial es encontrar un canal de acceso a la red interna.',
   'La computadora se representa como una casa con habitaciones.',
-  'Elegi bien los comandos en cada puerta para avanzar.',
-  'Si fallas, el antivirus detecta tu presencia.',
+  'Elige bien los comandos en cada puerta para avanzar.',
+  'Si fallas, el antivirus detecta tu presencia...',
 ];
 
 const NARRATIVE_LEVEL: Readonly<Record<number, readonly string[]>> = {
-  1: ['Puerta final superada.', 'Canal de acceso a la red interna detectado.'],
+  1: ['Ingresaste a la red interna de la empresa.', 'Ten cuidado con el antivirus... que no te encuentre.'],
 };
 
 const NARRATIVE_LOSE: readonly string[] = [
@@ -212,7 +212,7 @@ export class NarrativeScreen {
         pointer-events: all;
       }
       #narrative-content {
-        max-width: 600px;
+        max-width: 760px;
         width: 100%;
         padding: 2rem;
         text-align: center;
@@ -224,7 +224,8 @@ export class NarrativeScreen {
         line-height: 2;
         margin: 0;
         min-height: 1.5em;
-        white-space: pre;
+        text-align: center;
+        white-space: pre-wrap;
       }
       .narrative-line--title {
         font-size: 1.7rem;
