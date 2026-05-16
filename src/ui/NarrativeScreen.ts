@@ -29,6 +29,7 @@ export class NarrativeScreen {
   private readonly textContainer: HTMLElement;
   private isActive = false;
   private timeoutIds: number[] = [];
+  private skipCallBack: (() => void) | null = null;
 
   public constructor() {
     this.injectStyles();
@@ -39,10 +40,12 @@ export class NarrativeScreen {
 
     window.addEventListener('levelComplete', this.onLevelComplete);
     window.addEventListener('gameOver', this.onGameOver);
+    window.addEventListener('keydown', this.onKeyDown);
 
     GameStateManager.getInstance().setPaused(true);
     this.show(NARRATIVE_INTRO as string[], () => {
       GameStateManager.getInstance().setPaused(false);
+      overlay.removeChild(overlay.lastChild);
     });
   }
 
@@ -51,7 +54,16 @@ export class NarrativeScreen {
     this.isActive = true;
     this.prepareOverlay();
 
+    this.skipCallBack = () => {
+      this.clearTimeouts();
+      this.overlay.classList.remove('visible');
+      this.isActive = false;
+      this.skipCallBack = null;
+      onComplete();
+    };
+
     this.typeLines(lines, 0, () => {
+      this.skipCallBack = null;
       const id = window.setTimeout(() => {
         this.overlay.classList.remove('visible');
         this.isActive = false;
@@ -69,6 +81,7 @@ export class NarrativeScreen {
     const lines = won ? this.buildWinLines() : (NARRATIVE_LOSE as string[]);
 
     this.typeLines(lines, 0, () => {
+      this.skipCallBack = null;
       const id = window.setTimeout(() => this.mountRetryButton(), 800);
       this.timeoutIds.push(id);
     });
@@ -78,6 +91,7 @@ export class NarrativeScreen {
     this.clearTimeouts();
     window.removeEventListener('levelComplete', this.onLevelComplete);
     window.removeEventListener('gameOver', this.onGameOver);
+    window.removeEventListener('keydown', this.onKeyDown);
     this.overlay.remove();
   }
 
@@ -161,6 +175,13 @@ export class NarrativeScreen {
   private clearTimeouts(): void {
     for (const id of this.timeoutIds) clearTimeout(id);
     this.timeoutIds = [];
+  }
+
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (e.code === 'Space' && this.skipCallBack !== null) {
+      e.preventDefault();
+      this.skipCallBack();
+    }
   }
 
   private readonly onLevelComplete = (event: Event): void => {
@@ -266,8 +287,7 @@ export class NarrativeScreen {
         letter-spacing: 0.08em;
         pointer-events: none;
         animation: narrative-blink 2.4s ease-in-out infinite;
-        
-      }
+      }  
     `;
     document.head.appendChild(style);
   }
