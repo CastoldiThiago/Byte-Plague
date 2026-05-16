@@ -185,8 +185,13 @@ export class NarrativeScreen {
     const textContainer = document.createElement('div');
     textContainer.id = 'narrative-text';
 
+    const skipHint = document.createElement('div');
+    skipHint.id = 'narrative-skip-hint';
+    skipHint.textContent = "Presione la tecla 'espacio' para saltar intro";
+
     content.appendChild(textContainer);
     overlay.appendChild(content);
+    overlay.appendChild(skipHint);
     return { overlay, textContainer };
   }
 
@@ -250,6 +255,18 @@ export class NarrativeScreen {
       #narrative-retry-btn:hover {
         background: rgba(155, 255, 79, 0.12);
         color: #fff;
+      }
+      #narrative-skip-hint {
+        position: absolute;
+        bottom: 1.8rem;
+        right: 2rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.78rem;
+        color: rgba(81, 235, 15, 0.92);
+        letter-spacing: 0.08em;
+        pointer-events: none;
+        animation: narrative-blink 2.4s ease-in-out infinite;
+        
       }
     `;
     document.head.appendChild(style);

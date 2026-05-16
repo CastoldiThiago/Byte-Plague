@@ -18,7 +18,7 @@ export class SceneManager {
   private readonly playerController: PlayerController;
   private readonly interactionManager: InteractionManager;
   private readonly terminalUI: TerminalUI;
-  private readonly narrativeScreen: NarrativeScreen | null;
+  private narrativeScreen: NarrativeScreen | null;
   private readonly audioManager: AudioManager;
   private animationFrameId: number | null = null;
   private isPaused = false;
@@ -102,6 +102,12 @@ export class SceneManager {
     window.addEventListener('gamePaused', this.gamePausedHandler);
     window.addEventListener('gameResumed', this.gameResumedHandler);
     window.addEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
+    window.addEventListener('keydown', (event) => {
+      if (event.key === ' ') {
+        this.narrativeScreen.dispose();
+      }
+        
+    })
 
     this.playerController.teleportTo(this.worldBuilder.getSpawnPoint());
 
