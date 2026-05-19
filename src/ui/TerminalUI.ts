@@ -28,6 +28,9 @@ export class TerminalUI {
     this.historyEl = built.historyEl;
     this.inputEl = built.inputEl;
 
+    // capture: true → dispara antes que cualquier listener en bubble phase,
+    // sin importar qué elemento tenga foco
+    window.addEventListener('keydown', this.onGlobalKeyDown, { capture: true });
     this.inputEl.addEventListener('keydown', this.onInputKeyDown);
     window.addEventListener('poiInteract', this.onPoiInteract);
 
@@ -35,8 +38,9 @@ export class TerminalUI {
   }
 
   public dispose(): void {
-    window.removeEventListener('poiInteract', this.onPoiInteract);
+    window.removeEventListener('keydown', this.onGlobalKeyDown, { capture: true });
     this.inputEl.removeEventListener('keydown', this.onInputKeyDown);
+    window.removeEventListener('poiInteract', this.onPoiInteract);
     this.panel.remove();
   }
 
@@ -55,12 +59,12 @@ export class TerminalUI {
     const title = document.createElement('span');
     title.id = 'terminal-title';
 
-    const escHint = document.createElement('span');
-    escHint.id = 'terminal-esc-hint';
-    escHint.textContent = '[ESC] cerrar';
+    const closeHint = document.createElement('span');
+    closeHint.id = 'terminal-esc-hint';
+    closeHint.textContent = '[`] cerrar';
 
     header.appendChild(title);
-    header.appendChild(escHint);
+    header.appendChild(closeHint);
 
     const historyEl = document.createElement('div');
     historyEl.id = 'terminal-history';
@@ -97,6 +101,8 @@ export class TerminalUI {
     this.inputEl.value = '';
     this.renderHistory();
 
+    // Marcar terminal abierta ANTES de soltar el lock para que onControlsUnlock
+    // vea el flag y no dispare gamePaused
     GameStateManager.getInstance().setTerminalOpen(true);
     document.exitPointerLock();
 
@@ -109,6 +115,8 @@ export class TerminalUI {
     this.isOpen = false;
     this.panel.classList.remove('visible');
     this.currentPoiId = '';
+    // El browser solo hace "exit pointer lock" automático en ESC, no en Backquote,
+    // por lo que podemos resetear el flag y re-adquirir el lock de forma sincrónica
     GameStateManager.getInstance().setTerminalOpen(false);
     this.lockFn();
   }
@@ -185,12 +193,19 @@ export class TerminalUI {
     this.open(poiId);
   };
 
-  private readonly onInputKeyDown = (event: KeyboardEvent): void => {
-    if (event.code === 'Escape') {
-      event.stopPropagation();
+  // Fase de captura: intercepta Backquote cuando el terminal está abierto,
+  // sin importar qué elemento tenga foco
+  private readonly onGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (!this.isOpen) return;
+    if (event.code === 'Backquote') {
+      event.stopImmediatePropagation();
+      event.preventDefault(); // evita que el ` aparezca en el input si lo tiene
       this.close();
-      return;
     }
+  };
+
+  // Solo maneja Enter; el cierre va por onGlobalKeyDown
+  private readonly onInputKeyDown = (event: KeyboardEvent): void => {
     if (event.code === 'Enter') {
       event.stopPropagation();
       this.execute();

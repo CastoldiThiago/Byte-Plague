@@ -174,7 +174,7 @@ export class WorldBuilder {
       });
 
       this.drone = gltf.scene;
-      this.drone.position.set(3, this.droneBaseY, -5);
+      this.drone.position.set(0.97, this.droneBaseY, -25.49);
       this.drone.scale.setScalar(0.008);
       this.drone.traverse((child) => {
         if (child instanceof THREE.Mesh) child.castShadow = true;
