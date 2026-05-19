@@ -1,227 +1,214 @@
 import { CommandEngine } from '../gameplay/CommandEngine';
-import type { CommandResult, CommandChoice } from '../gameplay/CommandEngine';
+import type { CommandResult } from '../gameplay/CommandEngine';
 import { GameStateManager } from '../core/GameStateManager';
 
-interface FeedbackEntry {
+interface HistoryEntry {
   command: string;
   result: CommandResult;
 }
 
+const MAX_HISTORY = 5;
+
 export class TerminalUI {
-  private readonly popup: HTMLElement;
-  private readonly popupTitle: HTMLElement;
-  private readonly popupChoices: HTMLElement;
-  private readonly feedbackPanel: HTMLElement;
+  private readonly panel: HTMLElement;
+  private readonly panelTitle: HTMLElement;
+  private readonly historyEl: HTMLElement;
+  private readonly inputEl: HTMLInputElement;
   private readonly commandEngine = new CommandEngine();
+  private readonly lockFn: () => void;
   private isOpen = false;
   private currentPoiId = '';
-  private currentChoices: readonly CommandChoice[] = [];
-  private readonly history: FeedbackEntry[] = [];
-  private historyIndex = -1;
+  private readonly history: HistoryEntry[] = [];
 
-  public constructor() {
-    const { popup, title, choices } = this.buildPopup();
-    this.popup = popup;
-    this.popupTitle = title;
-    this.popupChoices = choices;
-    this.feedbackPanel = this.buildFeedbackPanel();
+  public constructor(lockFn: () => void) {
+    this.lockFn = lockFn;
+    const built = this.buildPanel();
+    this.panel = built.panel;
+    this.panelTitle = built.title;
+    this.historyEl = built.historyEl;
+    this.inputEl = built.inputEl;
 
-    const root = document.getElementById('app')!;
-    root.appendChild(this.popup);
-    root.appendChild(this.feedbackPanel);
-
+    // capture: true → dispara antes que cualquier listener en bubble phase,
+    // sin importar qué elemento tenga foco
+    window.addEventListener('keydown', this.onGlobalKeyDown, { capture: true });
+    this.inputEl.addEventListener('keydown', this.onInputKeyDown);
     window.addEventListener('poiInteract', this.onPoiInteract);
-    window.addEventListener('keydown', this.onKeyDown);
+
+    document.getElementById('app')!.appendChild(this.panel);
   }
 
   public dispose(): void {
+    window.removeEventListener('keydown', this.onGlobalKeyDown, { capture: true });
+    this.inputEl.removeEventListener('keydown', this.onInputKeyDown);
     window.removeEventListener('poiInteract', this.onPoiInteract);
-    window.removeEventListener('keydown', this.onKeyDown);
-    this.popup.remove();
-    this.feedbackPanel.remove();
+    this.panel.remove();
   }
 
-  private buildPopup(): { popup: HTMLElement; title: HTMLElement; choices: HTMLElement } {
-    const popup = document.createElement('div');
-    popup.id = 'command-popup';
+  private buildPanel(): {
+    panel: HTMLElement;
+    title: HTMLElement;
+    historyEl: HTMLElement;
+    inputEl: HTMLInputElement;
+  } {
+    const panel = document.createElement('div');
+    panel.id = 'terminal-panel';
 
     const header = document.createElement('div');
-    header.id = 'command-popup-header';
+    header.id = 'terminal-header';
 
     const title = document.createElement('span');
-    title.id = 'command-popup-title';
+    title.id = 'terminal-title';
 
-    const esc = document.createElement('span');
-    esc.id = 'command-popup-esc';
-    esc.textContent = '[E] cerrar';
+    const closeHint = document.createElement('span');
+    closeHint.id = 'terminal-esc-hint';
+    closeHint.textContent = '[`] cerrar';
 
     header.appendChild(title);
-    header.appendChild(esc);
+    header.appendChild(closeHint);
 
-    const choices = document.createElement('div');
-    choices.id = 'command-popup-choices';
+    const historyEl = document.createElement('div');
+    historyEl.id = 'terminal-history';
 
-    popup.appendChild(header);
-    popup.appendChild(choices);
+    const inputRow = document.createElement('div');
+    inputRow.id = 'terminal-input-row';
 
-    return { popup, title, choices };
-  }
+    const prompt = document.createElement('span');
+    prompt.className = 'terminal-prompt';
+    prompt.textContent = '$';
 
-  private buildFeedbackPanel(): HTMLElement {
-    const panel = document.createElement('div');
-    panel.id = 'feedback-panel';
-    return panel;
+    const inputEl = document.createElement('input');
+    inputEl.id = 'terminal-input';
+    inputEl.type = 'text';
+    inputEl.autocomplete = 'off';
+    inputEl.spellcheck = false;
+
+    inputRow.appendChild(prompt);
+    inputRow.appendChild(inputEl);
+
+    panel.appendChild(header);
+    panel.appendChild(historyEl);
+    panel.appendChild(inputRow);
+
+    return { panel, title, historyEl, inputEl };
   }
 
   private open(poiId: string): void {
     const scenario = this.commandEngine.getScenario(poiId);
     if (scenario === null) return;
 
-    this.feedbackPanel.innerHTML = '';
-    this.historyIndex = -1;
     this.currentPoiId = poiId;
-    this.currentChoices = scenario.choices;
-    this.popupTitle.textContent = scenario.label;
+    this.panelTitle.textContent = scenario.label;
+    this.inputEl.value = '';
+    this.renderHistory();
 
-    this.popupChoices.innerHTML = '';
-    scenario.choices.forEach((choice, i) => {
-      const row = document.createElement('div');
-      row.className = 'command-choice';
-      row.innerHTML =
-        `<span class="command-choice-key">[${i + 1}]</span>` +
-        `<span class="command-choice-cmd">${choice.command}</span>`;
-      this.popupChoices.appendChild(row);
-    });
+    // Marcar terminal abierta ANTES de soltar el lock para que onControlsUnlock
+    // vea el flag y no dispare gamePaused
+    GameStateManager.getInstance().setTerminalOpen(true);
+    document.exitPointerLock();
 
     this.isOpen = true;
-    this.popup.classList.add('visible');
+    this.panel.classList.add('visible');
+    requestAnimationFrame(() => this.inputEl.focus());
   }
 
   private close(): void {
     this.isOpen = false;
-    this.popup.classList.remove('visible');
+    this.panel.classList.remove('visible');
     this.currentPoiId = '';
-    this.currentChoices = [];
+    // El browser solo hace "exit pointer lock" automático en ESC, no en Backquote,
+    // por lo que podemos resetear el flag y re-adquirir el lock de forma sincrónica
+    GameStateManager.getInstance().setTerminalOpen(false);
+    this.lockFn();
   }
 
-  private choose(index: number): void {
-    if (!this.isOpen || index >= this.currentChoices.length) return;
+  private execute(): void {
+    const raw = this.inputEl.value.trim();
+    if (raw === '') return;
 
-    const poiId = this.currentPoiId;
-    const choice = this.currentChoices[index]!;
+    this.inputEl.value = '';
+
     const result = this.commandEngine.process(
-      choice.command,
-      poiId,
+      raw,
+      this.currentPoiId,
       GameStateManager.getInstance().objectivesCompleted,
     );
 
-    this.close();
-    this.addFeedback(choice.command, result);
+    if (this.history.length >= MAX_HISTORY) {
+      this.history.shift();
+    }
+    this.history.push({ command: raw, result });
+    this.renderHistory();
 
     if (result.objectiveId !== undefined) {
       GameStateManager.getInstance().completeObjective(result.objectiveId);
     }
 
     if (result.success) {
-      window.dispatchEvent(new CustomEvent('doorUnlocked', { detail: { poiId } }));
+      window.dispatchEvent(new CustomEvent('doorUnlocked', { detail: { poiId: this.currentPoiId } }));
       window.dispatchEvent(new CustomEvent('commandSuccess'));
     } else {
-      GameStateManager.getInstance().increaseAlert(20);
+      GameStateManager.getInstance().increaseAlert(10);
       window.dispatchEvent(new CustomEvent('commandFail'));
     }
   }
 
-  private addFeedback(command: string, result: CommandResult): void {
-    this.history.push({ command, result });
-    this.historyIndex = this.history.length - 1;
-    this.renderFeedback();
-  }
+  private renderHistory(): void {
+    this.historyEl.innerHTML = '';
 
-  private renderFeedback(): void {
-    const entry = this.history[this.historyIndex];
-    if (entry === undefined) return;
+    for (const entry of this.history) {
+      const cmdLine = document.createElement('div');
+      cmdLine.className = 'terminal-cmd';
+      cmdLine.textContent = `> ${entry.command}`;
+      this.historyEl.appendChild(cmdLine);
 
-    this.feedbackPanel.innerHTML = '';
+      const outputClass = entry.result.success ? 'terminal-output-ok' : 'terminal-output-err';
+      for (const line of entry.result.feedback.split('\n')) {
+        const el = document.createElement('div');
+        el.className = `terminal-output ${outputClass}`;
+        el.textContent = line;
+        this.historyEl.appendChild(el);
+      }
 
-    const cmdLine = document.createElement('div');
-    cmdLine.className = 'feedback-cmd';
-    cmdLine.textContent = `> ${entry.command}`;
-    this.feedbackPanel.appendChild(cmdLine);
+      if (entry.result.conclusion !== undefined) {
+        const conc = document.createElement('div');
+        conc.className = 'terminal-conclusion';
+        conc.textContent = `// ${entry.result.conclusion}`;
+        this.historyEl.appendChild(conc);
+      }
 
-    const outputClass = entry.result.success ? 'feedback-output--ok' : 'feedback-output--err';
-    for (const line of entry.result.feedback.split('\n')) {
-      const el = document.createElement('div');
-      el.className = `feedback-output ${outputClass}`;
-      el.textContent = line;
-      this.feedbackPanel.appendChild(el);
+      const spacer = document.createElement('div');
+      spacer.className = 'terminal-spacer';
+      this.historyEl.appendChild(spacer);
     }
 
-    if (entry.result.conclusion !== undefined) {
-      const sep = document.createElement('div');
-      sep.className = 'feedback-output';
-      this.feedbackPanel.appendChild(sep);
-
-      const conc = document.createElement('div');
-      conc.className = 'feedback-conclusion';
-      conc.textContent = `// ${entry.result.conclusion}`;
-      this.feedbackPanel.appendChild(conc);
-    }
-
-    this.feedbackPanel.appendChild(this.buildNavFooter());
-    this.feedbackPanel.classList.add('visible');
-  }
-
-  private buildNavFooter(): HTMLElement {
-    const nav = document.createElement('div');
-    nav.className = 'feedback-nav';
-
-    const hasPrev = this.historyIndex > 0;
-    const hasNext = this.historyIndex < this.history.length - 1;
-
-    const q = document.createElement('span');
-    q.className = hasPrev ? 'feedback-nav-key' : 'feedback-nav-key feedback-nav-key--off';
-    q.textContent = '[Q] ←';
-
-    const count = document.createElement('span');
-    count.className = 'feedback-nav-count';
-    count.textContent = `${this.historyIndex + 1} / ${this.history.length}`;
-
-    const r = document.createElement('span');
-    r.className = hasNext ? 'feedback-nav-key' : 'feedback-nav-key feedback-nav-key--off';
-    r.textContent = '→ [R]';
-
-    nav.appendChild(q);
-    nav.appendChild(count);
-    nav.appendChild(r);
-    return nav;
+    this.historyEl.scrollTop = this.historyEl.scrollHeight;
   }
 
   private readonly onPoiInteract = (event: Event): void => {
     const { poiId } = (event as CustomEvent<{ poiId: string }>).detail;
+    if (this.isOpen) {
+      this.inputEl.focus();
+      return;
+    }
     this.open(poiId);
   };
 
-  private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (this.isOpen) {
-      if (event.code === 'KeyE') {
-        // stopImmediatePropagation evita que InteractionManager procese este E
-        // y vuelva a disparar poiInteract reabriendo el panel
-        event.stopImmediatePropagation();
-        this.close();
-        return;
-      }
-      if (event.code === 'Digit1') this.choose(0);
-      else if (event.code === 'Digit2') this.choose(1);
-      else if (event.code === 'Digit3') this.choose(2);
-      return;
+  // Fase de captura: intercepta Backquote cuando el terminal está abierto,
+  // sin importar qué elemento tenga foco
+  private readonly onGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (!this.isOpen) return;
+    if (event.code === 'Backquote') {
+      event.stopImmediatePropagation();
+      event.preventDefault(); // evita que el ` aparezca en el input si lo tiene
+      this.close();
     }
+  };
 
-    if (event.code === 'KeyQ' && this.historyIndex > 0) {
-      this.historyIndex--;
-      this.renderFeedback();
-    } else if (event.code === 'KeyR' && this.historyIndex < this.history.length - 1) {
-      this.historyIndex++;
-      this.renderFeedback();
+  // Solo maneja Enter; el cierre va por onGlobalKeyDown
+  private readonly onInputKeyDown = (event: KeyboardEvent): void => {
+    if (event.code === 'Enter') {
+      event.stopPropagation();
+      this.execute();
     }
   };
 }
