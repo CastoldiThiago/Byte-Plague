@@ -10,7 +10,7 @@ app.innerHTML = `
   <div id="game-root"></div>
   <div id="hud">
     <p>Virus infiltrado por phishing</p>
-    <p>WASD moverse | E abrir terminal | escribe + Enter | \` cerrar terminal | ESC pausar</p>
+    <p>WASD moverse | E abrir terminal | Enter ejecutar | \` cerrar terminal | N objetivos | ESC pausar</p>
     <div id="alert-bar-track">
       <div id="alert-bar-fill"></div>
     </div>

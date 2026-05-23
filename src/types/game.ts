@@ -18,6 +18,8 @@ export interface Scenario {
   successOutput: string;
   conclusion: string;
   failOutput: string;
+  hint?: string;     // comentario mostrado en la terminal al abrir el POI
+  helpText?: string; // respuesta al comando /help
   objectiveId?: string;
   requiredObjectives?: readonly string[];
 }

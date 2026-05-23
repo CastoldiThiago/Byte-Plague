@@ -116,6 +116,7 @@ export class PlayerController {
   }
 
   private readonly onRequestLock = (): void => {
+    if (GameStateManager.getInstance().terminalOpen) return;
     this.controls.lock();
   };
 
@@ -135,7 +136,10 @@ export class PlayerController {
       case 'KeyA': this.input.left = true; break;
       case 'KeyD': this.input.right = true; break;
       case 'Space':
-        if (this.flyMode) { event.preventDefault(); this.input.up = true; }
+        if (this.flyMode && !GameStateManager.getInstance().terminalOpen) {
+          event.preventDefault();
+          this.input.up = true;
+        }
         break;
       case 'ShiftLeft':
       case 'ShiftRight':

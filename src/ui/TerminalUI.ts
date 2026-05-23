@@ -1,10 +1,13 @@
 import { CommandEngine } from '../gameplay/CommandEngine';
 import type { CommandResult } from '../gameplay/CommandEngine';
 import { GameStateManager } from '../core/GameStateManager';
+import { NotesPanel } from './NotesPanel';
+import type { Scenario } from '../types/game';
 
 interface HistoryEntry {
   command: string;
   result: CommandResult;
+  kind?: 'help';
 }
 
 const MAX_HISTORY = 5;
@@ -15,9 +18,11 @@ export class TerminalUI {
   private readonly historyEl: HTMLElement;
   private readonly inputEl: HTMLInputElement;
   private readonly commandEngine = new CommandEngine();
+  private readonly notesPanel: NotesPanel;
   private readonly lockFn: () => void;
   private isOpen = false;
   private currentPoiId = '';
+  private currentScenario: Scenario | null = null;
   private readonly history: HistoryEntry[] = [];
 
   public constructor(lockFn: () => void) {
@@ -27,10 +32,10 @@ export class TerminalUI {
     this.panelTitle = built.title;
     this.historyEl = built.historyEl;
     this.inputEl = built.inputEl;
+    this.notesPanel = new NotesPanel();
 
-    // capture: true → dispara antes que cualquier listener en bubble phase,
-    // sin importar qué elemento tenga foco
     window.addEventListener('keydown', this.onGlobalKeyDown, { capture: true });
+    window.addEventListener('mousedown', this.onGlobalMouseDown, { capture: true });
     this.inputEl.addEventListener('keydown', this.onInputKeyDown);
     window.addEventListener('poiInteract', this.onPoiInteract);
 
@@ -39,8 +44,10 @@ export class TerminalUI {
 
   public dispose(): void {
     window.removeEventListener('keydown', this.onGlobalKeyDown, { capture: true });
+    window.removeEventListener('mousedown', this.onGlobalMouseDown, { capture: true });
     this.inputEl.removeEventListener('keydown', this.onInputKeyDown);
     window.removeEventListener('poiInteract', this.onPoiInteract);
+    this.notesPanel.dispose();
     this.panel.remove();
   }
 
@@ -96,13 +103,17 @@ export class TerminalUI {
     const scenario = this.commandEngine.getScenario(poiId);
     if (scenario === null) return;
 
-    this.currentPoiId = poiId;
+    // Clear history only when switching to a different POI
+    if (poiId !== this.currentPoiId) {
+      this.history.length = 0;
+      this.currentPoiId = poiId;
+      this.currentScenario = scenario;
+    }
+
     this.panelTitle.textContent = scenario.label;
     this.inputEl.value = '';
     this.renderHistory();
 
-    // Marcar terminal abierta ANTES de soltar el lock para que onControlsUnlock
-    // vea el flag y no dispare gamePaused
     GameStateManager.getInstance().setTerminalOpen(true);
     document.exitPointerLock();
 
@@ -114,9 +125,7 @@ export class TerminalUI {
   private close(): void {
     this.isOpen = false;
     this.panel.classList.remove('visible');
-    this.currentPoiId = '';
-    // El browser solo hace "exit pointer lock" automático en ESC, no en Backquote,
-    // por lo que podemos resetear el flag y re-adquirir el lock de forma sincrónica
+    // currentPoiId and currentScenario are kept so history persists on reopen
     GameStateManager.getInstance().setTerminalOpen(false);
     this.lockFn();
   }
@@ -126,6 +135,26 @@ export class TerminalUI {
     if (raw === '') return;
 
     this.inputEl.value = '';
+
+    // Handle /help before CommandEngine
+    if (raw === '/help') {
+      const lines: string[] = [];
+      if (this.currentScenario?.hint !== undefined) {
+        lines.push(`// ${this.currentScenario.hint}`);
+        lines.push('');
+      }
+      lines.push(this.currentScenario?.helpText ?? 'Sin ayuda disponible para este comando.');
+
+      const entry: HistoryEntry = {
+        command: raw,
+        result: { success: false, feedback: lines.join('\n') },
+        kind: 'help',
+      };
+      if (this.history.length >= MAX_HISTORY) this.history.shift();
+      this.history.push(entry);
+      this.renderHistory();
+      return;
+    }
 
     const result = this.commandEngine.process(
       raw,
@@ -139,13 +168,15 @@ export class TerminalUI {
     this.history.push({ command: raw, result });
     this.renderHistory();
 
-    if (result.objectiveId !== undefined) {
-      GameStateManager.getInstance().completeObjective(result.objectiveId);
-    }
-
     if (result.success) {
+      if (result.objectiveId !== undefined) {
+        GameStateManager.getInstance().completeObjective(result.objectiveId);
+        this.notesPanel.refreshObjectives();
+      }
+
       window.dispatchEvent(new CustomEvent('doorUnlocked', { detail: { poiId: this.currentPoiId } }));
       window.dispatchEvent(new CustomEvent('commandSuccess'));
+      // Terminal stays open — user reads the output and closes with backtick
     } else {
       GameStateManager.getInstance().increaseAlert(10);
       window.dispatchEvent(new CustomEvent('commandFail'));
@@ -161,19 +192,28 @@ export class TerminalUI {
       cmdLine.textContent = `> ${entry.command}`;
       this.historyEl.appendChild(cmdLine);
 
-      const outputClass = entry.result.success ? 'terminal-output-ok' : 'terminal-output-err';
-      for (const line of entry.result.feedback.split('\n')) {
-        const el = document.createElement('div');
-        el.className = `terminal-output ${outputClass}`;
-        el.textContent = line;
-        this.historyEl.appendChild(el);
-      }
+      if (entry.kind === 'help') {
+        for (const line of entry.result.feedback.split('\n')) {
+          const el = document.createElement('div');
+          el.className = line.startsWith('//') ? 'terminal-hint' : 'terminal-output terminal-output-info';
+          el.textContent = line;
+          this.historyEl.appendChild(el);
+        }
+      } else {
+        const outputClass = entry.result.success ? 'terminal-output-ok' : 'terminal-output-err';
+        for (const line of entry.result.feedback.split('\n')) {
+          const el = document.createElement('div');
+          el.className = `terminal-output ${outputClass}`;
+          el.textContent = line;
+          this.historyEl.appendChild(el);
+        }
 
-      if (entry.result.conclusion !== undefined) {
-        const conc = document.createElement('div');
-        conc.className = 'terminal-conclusion';
-        conc.textContent = `// ${entry.result.conclusion}`;
-        this.historyEl.appendChild(conc);
+        if (entry.result.conclusion !== undefined) {
+          const conc = document.createElement('div');
+          conc.className = 'terminal-conclusion';
+          conc.textContent = `// ${entry.result.conclusion}`;
+          this.historyEl.appendChild(conc);
+        }
       }
 
       const spacer = document.createElement('div');
@@ -193,18 +233,23 @@ export class TerminalUI {
     this.open(poiId);
   };
 
-  // Fase de captura: intercepta Backquote cuando el terminal está abierto,
-  // sin importar qué elemento tenga foco
-  private readonly onGlobalKeyDown = (event: KeyboardEvent): void => {
+  private readonly onGlobalMouseDown = (event: MouseEvent): void => {
     if (!this.isOpen) return;
-    if (event.code === 'Backquote') {
+    if (!this.panel.contains(event.target as Node)) {
       event.stopImmediatePropagation();
-      event.preventDefault(); // evita que el ` aparezca en el input si lo tiene
       this.close();
     }
   };
 
-  // Solo maneja Enter; el cierre va por onGlobalKeyDown
+  private readonly onGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (!this.isOpen) return;
+    if (event.code === 'Backquote') {
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      this.close();
+    }
+  };
+
   private readonly onInputKeyDown = (event: KeyboardEvent): void => {
     if (event.code === 'Enter') {
       event.stopPropagation();

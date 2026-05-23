@@ -85,8 +85,20 @@ export class WorldBuilder {
 
   private createFilePOIs(interactables: THREE.Object3D[]): void {
     const defs = [
-      { poiId: 'archivo-clientes', label: 'clientes.db',          x: -30.23, z: 13.20, color: 0x4a90d9, emissive: 0x0a1a33 },
-      { poiId: 'archivo-soporte',  label: 'credenciales_vpn.txt', x: -31.27, z:  5.59, color: 0xd94a4a, emissive: 0x330a0a },
+      // Pasillo de entrada: terminal comprometida
+      { poiId: 'terminal-entrada',       label: 'terminal.exe',         x: -11.00, z: 18.50, color: 0x00cc77, emissive: 0x002211 },
+      // PCs interactuables
+      { poiId: 'pc-1',                   label: 'PC Corporativa',       x: -14.83, z: 10.77, color: 0xcc8800, emissive: 0x221400 },
+      { poiId: 'pc-2',                   label: 'Terminal Monitoreo',   x:   8.81, z:-33.06, color: 0xcc8800, emissive: 0x221400 },
+      { poiId: 'pc-3',                   label: 'Consola de Red',       x: -15.71, z:-25.85, color: 0xcc8800, emissive: 0x221400 },
+      { poiId: 'pc-4',                   label: 'Estación Seguridad',   x:  13.43, z:-12.43, color: 0xcc8800, emissive: 0x221400 },
+      // Sala clientes
+      { poiId: 'archivo-clientes',       label: 'notas_reunion.txt',    x: -30.23, z: 13.20, color: 0x4a90d9, emissive: 0x0a1a33 },
+      // Sala soporte-it: archivo clave
+      { poiId: 'archivo-soporte',        label: 'credenciales_vpn.txt', x: -31.27, z:  5.59, color: 0xd94a4a, emissive: 0x330a0a },
+      // Sala soporte-it: distractores
+      { poiId: 'archivo-procedimientos', label: 'procedimientos.md',    x: -29.20, z:  6.80, color: 0x7a8a3a, emissive: 0x121508 },
+      { poiId: 'archivo-inventario',     label: 'inventario_hosts.csv', x: -31.80, z:  4.10, color: 0x3a7a8a, emissive: 0x081315 },
     ];
     for (const cfg of defs) {
       this.filePOIs.push(new FilePOI(this.scene, cfg, interactables));
