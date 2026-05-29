@@ -17,7 +17,7 @@ export const FILESYSTEM: VFSNode = {
                   content:
                     '#!/bin/bash\n' +
                     '# Script de monitoreo de conexiones — jperez\n' +
-                    'netstat -an | grep -E "ESTABLISHED|LISTEN"',
+                    'netstat -an',
                 },
                 Documents: {
                   type: 'dir',

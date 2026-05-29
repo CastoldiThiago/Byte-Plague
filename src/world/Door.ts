@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createLabelSprite, disposeLabelSprite } from './LabelSprite';
+import { createFocusedLabel as createLabelSprite, disposeSprite as disposeLabelSprite } from './LabelSprite';
 
 export interface DoorConfig {
   z: number;

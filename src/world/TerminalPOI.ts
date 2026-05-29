@@ -1,29 +1,28 @@
 import * as THREE from 'three';
-import folderUrl from '../assets/models/document_folder.glb?url';
+import terminalUrl from '../assets/models/scifi_terminal.glb?url';
 import { createDotSprite, createFocusedLabel, disposeSprite } from './LabelSprite';
 
-export interface FilePOIConfig {
+export interface TerminalPOIConfig {
   poiId: string;
   label: string;
   x: number;
   z: number;
-  color: number;
-  emissive: number;
+  /** Rotation around Y axis in radians. 0 = facing +Z, Math.PI = facing -Z. */
+  rotY?: number;
 }
 
 interface FocusDetail { poiId: string }
 
-const TARGET_WIDTH  = 0.70;
-const FOLDER_BASE_Y = 0.36;
+/** Desired max XZ extent of the terminal model (world units). */
+const TARGET_WIDTH = 1.20;
 
-export class FilePOI {
+export class TerminalPOI {
   private readonly poiId: string;
   private readonly scene: THREE.Scene;
   private readonly hitbox: THREE.Mesh;
-  private readonly pedestal: THREE.Mesh;
   private readonly dotSprite: THREE.Sprite;
   private readonly labelSprite: THREE.Sprite;
-  private folderRoot: THREE.Group | null = null;
+  private terminalRoot: THREE.Group | null = null;
   private dotTime = 0;
   private focused = false;
 
@@ -38,56 +37,48 @@ export class FilePOI {
 
   public constructor(
     scene: THREE.Scene,
-    config: FilePOIConfig,
+    config: TerminalPOIConfig,
     interactables: THREE.Object3D[],
   ) {
-    const { poiId, label, x, z } = config;
+    const { poiId, label, x, z, rotY = 0 } = config;
     this.poiId = poiId;
     this.scene  = scene;
 
-    // Invisible hitbox — visible=true so raycasting works, opacity=0 so nothing renders
+    // Invisible hitbox — visible=true keeps it raycastable, opacity=0 renders nothing
     this.hitbox = new THREE.Mesh(
-      new THREE.BoxGeometry(0.75, 0.65, 0.65),
+      new THREE.BoxGeometry(1.20, 1.80, 0.60),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
-    this.hitbox.position.set(x, FOLDER_BASE_Y + 0.32, z);
+    this.hitbox.position.set(x, 0.90, z);
+    this.hitbox.rotation.y = rotY;
     this.hitbox.userData.interactive = true;
     this.hitbox.userData.poiId       = poiId;
     this.hitbox.userData.poiLabel    = label;
     scene.add(this.hitbox);
     interactables.push(this.hitbox);
 
-    // Dark pedestal platform
-    this.pedestal = new THREE.Mesh(
-      new THREE.BoxGeometry(0.9, 0.35, 0.7),
-      new THREE.MeshStandardMaterial({ color: 0x2b2d33, roughness: 0.88, metalness: 0.06 }),
-    );
-    this.pedestal.position.set(x, 0.18, z);
-    this.pedestal.receiveShadow = true;
-    scene.add(this.pedestal);
-
-    // Sprites — Y refined once model height is known
+    // Sprites — Y positions refined once model height is known
     this.dotSprite = createDotSprite();
-    this.dotSprite.position.set(x, 1.10, z);
+    this.dotSprite.position.set(x, 2.10, z);
     scene.add(this.dotSprite);
 
     this.labelSprite = createFocusedLabel(label);
-    this.labelSprite.position.set(x, 1.36, z);
+    this.labelSprite.position.set(x, 2.40, z);
     this.labelSprite.visible = false;
     scene.add(this.labelSprite);
 
-    void this.loadFolder(x, z);
+    void this.loadTerminal(x, z, rotY);
 
     window.addEventListener('poiFocus', this.onFocus);
     window.addEventListener('poiBlur',  this.onBlur);
   }
 
-  private async loadFolder(worldX: number, worldZ: number): Promise<void> {
+  private async loadTerminal(worldX: number, worldZ: number, rotY: number): Promise<void> {
     try {
       const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const loader = new GLTFLoader();
       const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
-        loader.load(folderUrl, resolve, undefined, reject);
+        loader.load(terminalUrl, resolve, undefined, reject);
       });
 
       const root = gltf.scene;
@@ -103,29 +94,30 @@ export class FilePOI {
       const center = box.getCenter(new THREE.Vector3());
       const modelHeight = box.max.y - box.min.y;
 
-      // Center XZ over pedestal, bottom at FOLDER_BASE_Y
+      // Center XZ, bottom flush with floor (y=0), apply rotation
       root.position.set(
         worldX - center.x,
-        FOLDER_BASE_Y - box.min.y,
+        -box.min.y,
         worldZ - center.z,
       );
+      root.rotation.y = rotY;
 
       root.traverse((child) => {
         if (!(child instanceof THREE.Mesh)) return;
-        child.castShadow   = true;
+        child.castShadow    = true;
         child.receiveShadow = true;
       });
 
       this.scene.add(root);
-      this.folderRoot = root;
+      this.terminalRoot = root;
 
       // Move sprites above the actual model top
-      const worldTop = FOLDER_BASE_Y + modelHeight;
-      this.dotSprite.position.y   = worldTop + 0.22;
-      this.labelSprite.position.y = worldTop + 0.46;
+      const worldTop = modelHeight;
+      this.dotSprite.position.y   = worldTop + 0.25;
+      this.labelSprite.position.y = worldTop + 0.50;
 
     } catch (err) {
-      console.warn('document_folder.glb no se pudo cargar:', err);
+      console.warn('scifi_terminal.glb no se pudo cargar:', err);
     }
   }
 
@@ -154,13 +146,9 @@ export class FilePOI {
     (this.hitbox.material as THREE.Material).dispose();
     this.scene.remove(this.hitbox);
 
-    this.pedestal.geometry.dispose();
-    (this.pedestal.material as THREE.Material).dispose();
-    this.scene.remove(this.pedestal);
-
-    if (this.folderRoot !== null) {
+    if (this.terminalRoot !== null) {
       const seenMats = new Set<THREE.Material>();
-      this.folderRoot.traverse((child) => {
+      this.terminalRoot.traverse((child) => {
         if (!(child instanceof THREE.Mesh)) return;
         child.geometry.dispose();
         const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -168,7 +156,7 @@ export class FilePOI {
           if (!seenMats.has(m)) { seenMats.add(m); m.dispose(); }
         }
       });
-      this.scene.remove(this.folderRoot);
+      this.scene.remove(this.terminalRoot);
     }
   }
 }

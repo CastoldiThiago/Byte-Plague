@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import droneUrl from '../assets/models/drone.glb?url';
 import { HolographicBarrier } from './HolographicBarrier';
 import { FilePOI } from './FilePOI';
+import { TerminalPOI } from './TerminalPOI';
 
 
 export class WorldBuilder {
@@ -9,6 +10,7 @@ export class WorldBuilder {
   private readonly modelRoots: THREE.Group[] = [];
   private readonly barriers = new Map<string, HolographicBarrier>();
   private readonly filePOIs: FilePOI[] = [];
+  private readonly terminalPOIs: TerminalPOI[] = [];
   private spawnPoint = new THREE.Vector3(0, 1.7, 6);
   private drone: THREE.Group | null = null;
   private droneTime = 0;
@@ -24,6 +26,7 @@ export class WorldBuilder {
 
     void this.loadLevelModel(interactables, collidables);
     void this.loadDrone();
+    this.createTerminalPOIs(interactables);
     this.createFilePOIs(interactables);
 
     return { interactables, collidables };
@@ -41,6 +44,9 @@ export class WorldBuilder {
     for (const barrier of this.barriers.values()) {
       barrier.update(deltaTime);
     }
+
+    for (const poi of this.filePOIs) poi.update(deltaTime);
+    for (const poi of this.terminalPOIs) poi.update(deltaTime);
 
     if (this.drone !== null) {
       this.droneTime += deltaTime;
@@ -81,24 +87,27 @@ export class WorldBuilder {
 
     for (const poi of this.filePOIs) poi.dispose();
     this.filePOIs.length = 0;
+    for (const poi of this.terminalPOIs) poi.dispose();
+    this.terminalPOIs.length = 0;
+  }
+
+  private createTerminalPOIs(interactables: THREE.Object3D[]): void {
+    const defs = [
+      { poiId: 'pc-1', label: 'terminal_red.sh',    x: -14.83, z: 10.77, rotY: Math.PI / 2},
+      { poiId: 'pc-2', label: 'Terminal Monitoreo', x:   8.81, z:-33.06, rotY: 0 },
+      { poiId: 'pc-3', label: 'Consola de Red',     x: -15.71, z:-25.85, rotY: 0 },
+      { poiId: 'pc-4', label: 'Estación Seguridad', x:  13.43, z:-12.43, rotY: 0 },
+    ];
+    for (const cfg of defs) {
+      this.terminalPOIs.push(new TerminalPOI(this.scene, cfg, interactables));
+    }
   }
 
   private createFilePOIs(interactables: THREE.Object3D[]): void {
     const defs = [
-      // Pasillo de entrada: terminal comprometida
-      { poiId: 'terminal-entrada',       label: 'terminal.exe',         x: -11.00, z: 18.50, color: 0x00cc77, emissive: 0x002211 },
-      // PCs interactuables
-      { poiId: 'pc-1',                   label: 'terminal_red.sh',      x: -14.83, z: 10.77, color: 0xcc8800, emissive: 0x221400 },
-      { poiId: 'pc-2',                   label: 'Terminal Monitoreo',   x:   8.81, z:-33.06, color: 0xcc8800, emissive: 0x221400 },
-      { poiId: 'pc-3',                   label: 'Consola de Red',       x: -15.71, z:-25.85, color: 0xcc8800, emissive: 0x221400 },
-      { poiId: 'pc-4',                   label: 'Estación Seguridad',   x:  13.43, z:-12.43, color: 0xcc8800, emissive: 0x221400 },
-      // Sala clientes
-      { poiId: 'archivo-clientes',       label: 'notas_reunion.txt',    x: -30.23, z: 13.20, color: 0x4a90d9, emissive: 0x0a1a33 },
-      // Sala soporte-it: archivo clave
+      { poiId: 'archivo-clientes',       label: 'notas_reunion.txt',    x: -34.23, z: 16.18, color: 0x4a90d9, emissive: 0x0a1a33 },
       { poiId: 'archivo-soporte',        label: 'credenciales_vpn.txt', x: -31.27, z:  5.59, color: 0xd94a4a, emissive: 0x330a0a },
-      // Sala soporte-it: distractores
-      { poiId: 'archivo-procedimientos', label: 'procedimientos.md',    x: -29.20, z:  6.80, color: 0x7a8a3a, emissive: 0x121508 },
-      { poiId: 'archivo-inventario',     label: 'inventario_hosts.csv', x: -31.80, z:  4.10, color: 0x3a7a8a, emissive: 0x081315 },
+      { poiId: 'archivo-procedimientos', label: 'procedimientos.md',    x: -25.44, z: 19.62, color: 0x7a8a3a, emissive: 0x121508 },
     ];
     for (const cfg of defs) {
       this.filePOIs.push(new FilePOI(this.scene, cfg, interactables));
