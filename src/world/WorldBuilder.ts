@@ -88,7 +88,7 @@ export class WorldBuilder {
       // Pasillo de entrada: terminal comprometida
       { poiId: 'terminal-entrada',       label: 'terminal.exe',         x: -11.00, z: 18.50, color: 0x00cc77, emissive: 0x002211 },
       // PCs interactuables
-      { poiId: 'pc-1',                   label: 'PC Corporativa',       x: -14.83, z: 10.77, color: 0xcc8800, emissive: 0x221400 },
+      { poiId: 'pc-1',                   label: 'terminal_red.sh',      x: -14.83, z: 10.77, color: 0xcc8800, emissive: 0x221400 },
       { poiId: 'pc-2',                   label: 'Terminal Monitoreo',   x:   8.81, z:-33.06, color: 0xcc8800, emissive: 0x221400 },
       { poiId: 'pc-3',                   label: 'Consola de Red',       x: -15.71, z:-25.85, color: 0xcc8800, emissive: 0x221400 },
       { poiId: 'pc-4',                   label: 'Estación Seguridad',   x:  13.43, z:-12.43, color: 0xcc8800, emissive: 0x221400 },

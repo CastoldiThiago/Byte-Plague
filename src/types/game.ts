@@ -8,7 +8,13 @@ export interface CommandResult {
   feedback: string;
   conclusion?: string;
   objectiveId?: string;
+  /** When true, TerminalUI clears the visible history */
+  clear?: boolean;
 }
+
+export type VFSNode =
+  | { type: 'file'; content: string; hidden?: boolean }
+  | { type: 'dir'; children: Record<string, VFSNode>; hidden?: boolean };
 
 export interface Scenario {
   label: string;
@@ -18,8 +24,14 @@ export interface Scenario {
   successOutput: string;
   conclusion: string;
   failOutput: string;
-  hint?: string;     // comentario mostrado en la terminal al abrir el POI
-  helpText?: string; // respuesta al comando /help
+  hint?: string;
+  helpText?: string;
   objectiveId?: string;
   requiredObjectives?: readonly string[];
+  /** VFS directory that becomes cwd when this terminal opens */
+  basePath: string;
+  /** If true, `cd` commands reach VirtualFS (only door terminals); otherwise blocked */
+  allowCd?: boolean;
+  /** cwd to set in VirtualFS after a successful narrative unlock */
+  targetPath?: string;
 }
