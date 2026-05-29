@@ -13,6 +13,7 @@ export class GameStateManager {
 
   private static readonly LEVEL_OBJECTIVES: Readonly<Record<number, readonly string[]>> = {
     1: ['acceso-red-interna'],
+    2: ['domain-admin-access'],
   };
 
   private constructor() {
@@ -85,6 +86,7 @@ export class GameStateManager {
       window.dispatchEvent(
         new CustomEvent('levelComplete', { detail: { level: this._currentLevel } }),
       );
+      this._currentLevel++;
     }
   }
 

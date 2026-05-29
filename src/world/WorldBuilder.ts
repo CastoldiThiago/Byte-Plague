@@ -15,10 +15,20 @@ export class WorldBuilder {
   private drone: THREE.Group | null = null;
   private droneTime = 0;
   private droneBaseY = 3.5;
+  private droneActive = false;
 
   public constructor(scene: THREE.Scene) {
     this.scene = scene;
+    window.addEventListener('doorUnlocked', this.onDoorUnlocked);
   }
+
+  private readonly onDoorUnlocked = (e: Event): void => {
+    const { poiId } = (e as CustomEvent<{ poiId: string }>).detail;
+    if (poiId === 'puerta-red-interna') {
+      this.droneActive = true;
+      if (this.drone !== null) this.drone.visible = true;
+    }
+  };
 
   public build(): { interactables: THREE.Object3D[]; collidables: THREE.Object3D[] } {
     const interactables: THREE.Object3D[] = [];
@@ -89,14 +99,15 @@ export class WorldBuilder {
     this.filePOIs.length = 0;
     for (const poi of this.terminalPOIs) poi.dispose();
     this.terminalPOIs.length = 0;
+    window.removeEventListener('doorUnlocked', this.onDoorUnlocked);
   }
 
   private createTerminalPOIs(interactables: THREE.Object3D[]): void {
     const defs = [
-      { poiId: 'pc-1', label: 'terminal_red.sh',    x: -14.83, z: 10.77, rotY: Math.PI / 2},
-      { poiId: 'pc-2', label: 'Terminal Monitoreo', x:   8.81, z:-33.06, rotY: 0 },
-      { poiId: 'pc-3', label: 'Consola de Red',     x: -15.71, z:-25.85, rotY: 0 },
-      { poiId: 'pc-4', label: 'Estación Seguridad', x:  13.43, z:-12.43, rotY: 0 },
+      { poiId: 'pc-1',              label: 'terminal_red.sh',    x: -14.83, z:  10.77, rotY: Math.PI / 2 },
+      // Etapa 2
+      { poiId: 'terminal-kerberos', label: 'Kerberoasting',      x: -30.81, z: -16.90, rotY: -Math.PI },
+      { poiId: 'terminal-dc',       label: 'Domain Controller',  x:   7.66, z: -48.33, rotY: -Math.PI / 2 + 0.35, model: 'monitoring' as const, targetWidth: 3.60 },
     ];
     for (const cfg of defs) {
       this.terminalPOIs.push(new TerminalPOI(this.scene, cfg, interactables));
@@ -105,9 +116,13 @@ export class WorldBuilder {
 
   private createFilePOIs(interactables: THREE.Object3D[]): void {
     const defs = [
-      { poiId: 'archivo-clientes',       label: 'notas_reunion.txt',    x: -34.23, z: 16.18, color: 0x4a90d9, emissive: 0x0a1a33 },
-      { poiId: 'archivo-soporte',        label: 'credenciales_vpn.txt', x: -31.27, z:  5.59, color: 0xd94a4a, emissive: 0x330a0a },
-      { poiId: 'archivo-procedimientos', label: 'procedimientos.md',    x: -25.44, z: 19.62, color: 0x7a8a3a, emissive: 0x121508 },
+      // Etapa 1
+      { poiId: 'archivo-clientes',       label: 'notas_reunion.txt',    x: -34.23, z:  16.18, color: 0x4a90d9, emissive: 0x0a1a33 },
+      { poiId: 'archivo-soporte',        label: 'credenciales_vpn.txt', x: -31.27, z:   5.59, color: 0xd94a4a, emissive: 0x330a0a },
+      { poiId: 'archivo-procedimientos', label: 'procedimientos.md',    x: -25.44, z:  19.62, color: 0x7a8a3a, emissive: 0x121508 },
+      // Etapa 2
+      { poiId: 'archivo-network-map',    label: 'network_map.txt',      x: -22.74, z: -14.55, color: 0x4a90d9, emissive: 0x0a1a33 },
+      { poiId: 'archivo-sync-backup',    label: 'sync_backup.ps1',      x: -26.85, z: -14.26, color: 0xd94a4a, emissive: 0x330a0a },
     ];
     for (const cfg of defs) {
       this.filePOIs.push(new FilePOI(this.scene, cfg, interactables));
@@ -166,10 +181,15 @@ export class WorldBuilder {
     interactables: THREE.Object3D[],
     collidables: THREE.Object3D[],
   ): void {
-    const doors: Array<{ x: number; z: number; rotY: number; poiId: string; width: number }> = [
+    const doors: Array<{ x: number; z: number; rotY: number; poiId: string; width: number; label?: string }> = [
       { x: -14.78, z:  15.25, rotY: 0,            poiId: 'puerta-clientes',    width: 6 },
       { x: -23.57, z:  12.01, rotY: Math.PI / 2,  poiId: 'puerta-soporte',     width: 6 },
       { x:   0.97, z: -11.96, rotY: 0,             poiId: 'puerta-red-interna', width: 6 },
+      // Etapa 2
+      { x: -19.80, z: -26.97, rotY: Math.PI / 2,  poiId: 'puerta-shares',  width: 4 },
+      { x:   1.05, z: -41.93, rotY: 0,             poiId: 'puerta-dc',      width: 5 },
+      { x:  17.83, z: -13.46, rotY: Math.PI / 2,  poiId: 'puerta-critica', width: 5,
+        label: '[ACCESO CONCEDIDO] Privilegios de administrador de dominio detectados.' },
     ];
 
     for (const d of doors) {
@@ -181,6 +201,7 @@ export class WorldBuilder {
         d.poiId,
         interactables,
         collidables,
+        d.label,
       );
       this.barriers.set(d.poiId, barrier);
     }
@@ -197,6 +218,7 @@ export class WorldBuilder {
       this.drone = gltf.scene;
       this.drone.position.set(0.97, this.droneBaseY, -25.49);
       this.drone.scale.setScalar(0.008);
+      this.drone.visible = this.droneActive;
       this.drone.traverse((child) => {
         if (child instanceof THREE.Mesh) child.castShadow = true;
       });

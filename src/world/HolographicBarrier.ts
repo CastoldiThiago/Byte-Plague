@@ -59,6 +59,7 @@ export class HolographicBarrier {
     poiId: string,
     interactables: THREE.Object3D[],
     collidables: THREE.Object3D[],
+    label = 'Firewall activo [E] — bypass',
   ) {
     this.interactables = interactables;
     this.collidables = collidables;
@@ -78,7 +79,7 @@ export class HolographicBarrier {
     this.mesh.rotation.y = rotationY;
     this.mesh.userData.interactive = true;
     this.mesh.userData.poiId = poiId;
-    this.mesh.userData.poiLabel = 'Firewall activo [E] — bypass';
+    this.mesh.userData.poiLabel = label;
 
     scene.add(this.mesh);
     interactables.push(this.mesh);

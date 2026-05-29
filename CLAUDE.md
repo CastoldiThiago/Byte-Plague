@@ -10,39 +10,41 @@ El juego transcurre en un **único mapa** con estética sci-fi. No hay niveles s
 
 ## Etapas y flujo de juego
 
-> Los comandos listados en cada etapa son el **camino crítico** — los mínimos necesarios para avanzar. Cada zona puede tener comandos opcionales que otorgan lore, contexto narrativo, ítems extra o respuestas de error con texto narrativo. El sistema debe aceptar cualquier comando válido de Unix aunque no esté en el camino crítico, y responder con un mensaje coherente (permiso denegado, archivo no encontrado, etc.).
+> Los comandos listados en cada etapa son el **camino crítico** — los mínimos necesarios para avanzar. Cada zona puede tener comandos opcionales que otorgan lore, contexto narrativo o respuestas de error narrativas. El sistema acepta cualquier comando Unix válido y responde con un mensaje coherente (permiso denegado, archivo no encontrado, etc.).
 
-### Etapa 1 — Infiltración desde la PC del empleado (EN DESARROLLO)
+### Etapa 1 — Infiltración desde la PC del empleado (IMPLEMENTADA)
 
 El jugador spawnea en el túnel inferior. La PC del empleado (jperez) está en la habitación inferior izquierda. Hay que recolectar las credenciales VPN y la IP del servidor para poder conectarse a la red interna.
 
 **Recorrido:** Spawn (túnel) → Oficina de jperez → Barrera hacia red interna
 
-**Comandos:**
+**Camino crítico:**
 
-1. `whoami` → confirma usuario `jperez` sin privilegios
-2. `ls ~/Desktop` → lista archivos del escritorio
-3. `cat notas_reunion.txt` → revela IP `10.10.0.20`
-4. `cat credenciales_vpn.txt` → obtiene usuario `netops` y contraseña
-5. `ssh netops@10.10.0.20` → **barrera desbloqueada**, acceso a la red interna
+1. `cat notas_reunion.txt` → revela IP del gateway `10.10.0.20` → otorga `dato-clientes`
+2. `cat credenciales_vpn.txt` → obtiene usuario `netops` y contraseña → otorga `dato-soporte`
+3. `ssh netops@10.10.0.20` en `puerta-red-interna` → requiere `dato-clientes` + `dato-soporte` → **barrera desbloqueada**, acceso a la red interna
 
-### Etapa 2 — Escalada de privilegios (PENDIENTE)
+**Terminales opcionales (lore):** pc-1 (`netstat`), pc-2 (`ps aux`), pc-3 (`ping`), pc-4 (`top`)
 
-El jugador opera en la red interna como `netops`. Necesita credenciales de administrador de dominio para acceder a los archivos críticos. El drone del antivirus aparece por primera vez en esta etapa.
+### Etapa 2 — Escalada de privilegios (IMPLEMENTADA)
 
-**Recorrido:** Pasillo central → Servidor compartido (izquierda) → Controlador de dominio (sala hexagonal arriba)
+El jugador opera en la red interna como `netops`. Al cruzar la barrera de red interna el drone del antivirus aparece en escena. Necesita credenciales de domain_admin para acceder a los archivos críticos.
 
-**Comandos — Servidor compartido:**
+**Recorrido:** Pasillo central → Servidor compartido `/shares` (hab. izquierda) → Controlador de dominio (sala hexagonal)
 
-1. `ls /shares` → lista carpetas del servidor
-2. `cat /shares/IT_backups/network_map.txt` → revela IPs internas
-3. `net user /domain` → lista usuarios del dominio
-4. `find /shares/IT_backups -name "*.ps1"` → encuentra script de backup
-5. `cat /shares/IT_backups/sync_backup.ps1` → credenciales de `domain_admin` hardcodeadas
-6. `request_ticket svc_backup` → obtiene hash Kerberos (Kerberoasting)
-7. `crack_ticket svc_backup.ticket` → crackea el hash
+**Camino crítico — Servidor compartido:**
 
-**Comandos — Controlador de dominio:** 8. `su svc_backup` → sesión como cuenta de servicio 9. `net group "Domain Admins" /domain` → confirma existencia de domain_admin 10. `su domain_admin` → **barrera desbloqueada**, privilegios de administrador obtenidos
+1. `cd /shares` en `puerta-shares` → **barrera desbloqueada**, acceso al servidor compartido
+2. `cat /shares/IT_backups/network_map.txt` → revela IPs internas (DC: 10.10.0.5) → otorga `network-map`
+3. `cat /shares/IT_backups/sync_backup.ps1` → requiere `network-map` → credenciales de `domain_admin` hardcodeadas → otorga `admin-password`
+4. `request_ticket svc_backup` en terminal Kerberoasting → ticket TGS capturado → otorga `kerberos-ticket`
+5. `crack_ticket svc_backup.ticket` en misma terminal → requiere `kerberos-ticket` → contraseña crackeada → otorga `cracked-password`
+
+**Camino crítico — Controlador de dominio:**
+
+6. `su svc_backup` en `puerta-dc` → requiere `kerberos-ticket` + `cracked-password` → **barrera desbloqueada**
+7. `net group "Domain Admins" /domain` en terminal DC → confirma existencia de domain_admin (lore)
+8. `su domain_admin` en misma terminal → requiere `admin-password` → otorga `domain-admin-access` → **puerta-critica se abre automáticamente**
 
 ### Etapa 3 — Cifrado de archivos críticos (PENDIENTE)
 
@@ -79,13 +81,13 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 **Equivalencias narrativas:**
 
 - Spawn / túnel → punto de entrada, el virus acaba de ejecutarse
-- Oficina de jperez → `~/home/jperez`, PC del empleado comprometido
+- Oficina de jperez → `/home/jperez`, PC del empleado comprometido
 - Pasillo central → red local de la empresa, hub de tránsito
-- Servidor compartido → `/shares/`, carpetas internas del equipo de IT
+- Servidor compartido → `/shares/IT_backups/`, carpetas internas del equipo de IT
 - Sala hexagonal → controlador de dominio, administra usuarios y permisos
 - Sala grande derecha → `/critical/`, servidor con archivos objetivo
 
-**Ítems de evasión del antivirus (recolectables en el mapa):**
+**Ítems de evasión del antivirus (recolectables, pendiente de implementar):**
 
 - `traffic_spoof.exe` — pasillo central → envía el drone a la zona más lejana por 20 seg
 - `firewall_rule.sh` — servidor compartido → bloquea al drone de la zona actual por 15 seg
@@ -96,15 +98,17 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 ## Mecánicas implementadas
 
 - Movimiento WASD + PointerLock (mouse look)
-- Barreras holográficas en puertas: plano semitransparente animado con scan lines; se abren cuando el jugador ejecuta el comando correcto en la terminal
-- Archivos interactuables (FilePOI): terminal con input libre de texto. El jugador puede tirar cualquier comando Unix válido; solo el `correctCommand` del POI avanza la narrativa.
+- Barreras holográficas en puertas: plano semitransparente animado con scan lines; se abren cuando el jugador ejecuta el comando correcto. Label configurable por barrera. `puerta-critica` se abre automáticamente sin interacción del jugador.
+- **FilePOI**: objeto interactuable tipo archivo — usa `document_folder.glb` con texturas originales sobre un pedestal oscuro. Hitbox invisible para raycasting.
+- **TerminalPOI**: objeto interactuable tipo terminal — carga modelos GLB configurables (`scifi_terminal.glb`, `terminal.glb`). Soporta `targetWidth` por instancia y `model` key. El modelo se centra automáticamente dentro de un pivot wrapper para que la rotación no desplace el objeto.
+- **Labels de POIs**: punto de luz pulsante verde cuando no está enfocado; al enfocar muestra el nombre del archivo con fondo semitransparente y ancho dinámico (calculado con `measureText`). Sin hint "E para interactuar" (hay uno dinámico en el HUD).
+- Terminales multi-paso: `secondCommand` en `Scenario` permite una segunda acción narrativa en la misma terminal, con sus propios `requiredObjectives`, `objectiveId` y `unlocksDoor`.
 - Colisión FPS por raycasting: 3 rayos horizontales (ojos / cintura / rodillas), movimiento independiente por eje X/Z para wall-sliding
-- Sistema de alerta con barra de progreso: sube **solo** por fallos de comandos narrativos (`[ERROR]` en el output). Comandos VFS genéricos (ls, cat, ping, etc.) no suben alerta. Al llegar a 100% → game over
+- Sistema de alerta con barra de progreso: sube **solo** por fallos de comandos narrativos (`[ERROR]` en el output). Comandos VFS genéricos no suben alerta. Al llegar a 100% → game over
 - Timer de cuenta regresiva: corre desde que carga el juego. Al llegar a 0 → game over
-- GameStateManager con estados: `playing` / `paused` / `game-over`
-- AntivirusAgent: actualmente desactivado del flujo principal (rollback 26-04-2026); la detección se representa solo con la barra de alerta. **Pendiente: reactivar como drone físico con cono de visión**
+- GameStateManager: estados `playing` / `paused` / `game-over`, progresión de nivel (`_currentLevel` se incrementa al completar objetivos del nivel)
+- AntivirusAgent: implementado (detección por zona, patrullaje por waypoints) pero **desconectado del flujo principal**. El drone decorativo GLB aparece visible cuando el jugador desbloquea `puerta-red-interna`. **Pendiente: reactivar AntivirusAgent con waypoints del pasillo central y cono de visión.**
 - AudioManager: sonido ambiental tecnológico, sonidos de acierto y error de comandos
-- Drone decorativo animado en sala de entrada (hover + rotación)
 - Menú de pausa (ESC) sin romper el PointerLock flow — **ESC está ocupado: cualquier sistema nuevo que use ESC debe consultar el estado antes de actuar**
 - Modo dev: vuelo (Space sube / Shift baja), noClip, DevPanel con posición en tiempo real y copia al clipboard
 
@@ -127,32 +131,33 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 
 - `src/core/SceneManager.ts` — orquesta la escena, loop de animación (`animate()`), pausa, construye y conecta todos los subsistemas
 - `src/core/AudioManager.ts` — sonido ambiental y efectos de audio
-- `src/core/GameStateManager.ts` — máquina de estados del juego (`playing` / `paused` / `game-over`), timer, nivel de alerta. **Fuente de verdad única del juego**
+- `src/core/GameStateManager.ts` — fuente de verdad única: estados del juego, timer, nivel de alerta, objetivos completados, progresión de nivel. Al completar todos los objetivos de un nivel dispara `levelComplete` e incrementa `_currentLevel`.
 - `src/core/InteractionManager.ts` — escucha `poiFocus`/`poiBlur` y la tecla E; despacha `poiInteract` al sistema correcto
-- `src/core/AssetLoader.ts` — carga centralizada de assets (texturas, modelos)
-- `src/core/VirtualFS.ts` — singleton. Filesystem Linux simulado: estado global de `cwd` y `user`, ejecuta comandos genéricos, restricciones de `cd` (solo puertas) y `cat` (solo archivo propio del POI). Se sincroniza con el POI activo vía `setContext(basePath, allowCd, restrictedFile)`
+- `src/core/AssetLoader.ts` — carga centralizada de assets
+- `src/core/VirtualFS.ts` — singleton. Filesystem Linux simulado: `cwd`, `user`, comandos genéricos, restricciones de `cd` (solo puertas) y `cat` (solo archivo propio del POI, acepta tanto basename como path completo). Se sincroniza con el POI activo vía `setContext(basePath, allowCd, restrictedFile)`
 
 ### Gameplay (lógica de juego)
 
-- `src/gameplay/player/PlayerController.ts` — movimiento WASD, PointerLock, raycasting hacia interactuables (distancia máx. 5 u + line-of-sight), colisión por raycasting (3 alturas), fly mode y noClip (dev); despacha `poiFocus`/`poiBlur`/`gamePaused`/`gameResumed`
-- `src/gameplay/AntivirusAgent.ts` — actualmente: detección por zona (desactivado). **Pendiente: drone 3D con waypoints aleatorios, cono de visión proyectado en el suelo, escalada de agresividad con el tiempo**
-- `src/gameplay/CommandEngine.ts` — orquestador de tres capas: (1) narrativo exacto por POI, (2) VirtualFS genérico, (3) command not found
+- `src/gameplay/player/PlayerController.ts` — movimiento WASD, PointerLock, raycasting hacia interactuables (distancia máx. 5 u + line-of-sight), colisión por raycasting (3 alturas), fly mode y noClip (dev)
+- `src/gameplay/AntivirusAgent.ts` — detección por zona y patrullaje por waypoints. Actualmente desconectado del flujo principal. **Pendiente: reconectar con waypoints del pasillo central.**
+- `src/gameplay/CommandEngine.ts` — orquestador de cuatro capas: (1) narrativo `correctCommand`, (1b) narrativo `secondCommand`, (2) VirtualFS genérico, (3) command not found
 
 ### World (construcción del mundo)
 
-- `src/world/WorldBuilder.ts` — carga la escena GLTF (`/scifi_scene/scene.gltf`, scale=50, auto-centrado en XZ), crea barreras holográficas en las puertas narrativas y los FilePOIs; expone `build()`, `openDoor()`, `update()`, `dispose()`
-- `src/world/HolographicBarrier.ts` — barrera holográfica animada (scan lines en canvas, pulsación de opacidad); al abrirse se elimina de `interactables` y `collidables`. **Importante: `visible=false` no deshabilita raycasting en Three.js r184, hay que remover del array**
-- `src/world/FilePOI.ts` — objeto interactuable tipo archivo (mesh + base + label sprite + userData)
-- `src/world/LabelSprite.ts` — helper para crear sprites de texto 2D en el mundo 3D
+- `src/world/WorldBuilder.ts` — carga escena GLTF, crea barreras, FilePOIs y TerminalPOIs. Escucha `doorUnlocked` internamente para activar el drone al desbloquear `puerta-red-interna`. Expone `build()`, `openDoor()`, `update()`, `dispose()`.
+- `src/world/HolographicBarrier.ts` — barrera holográfica animada; label configurable por instancia. Al abrirse se remueve de `interactables` y `collidables`. **`visible=false` no deshabilita raycasting en Three.js r184 — siempre remover del array.**
+- `src/world/FilePOI.ts` — archivo interactuable: carga `document_folder.glb` con texturas originales, hitbox invisible, dot pulsante + label al enfocar, event listeners `poiFocus`/`poiBlur`.
+- `src/world/TerminalPOI.ts` — terminal interactuable: carga GLB configurable (`model` key → URL), normaliza escala a `targetWidth`, usa pivot wrapper para que la rotación no desplace el modelo, hitbox y sprites se reposicionan al centro real del modelo tras la carga.
+- `src/world/LabelSprite.ts` — `createDotSprite()` (punto pulsante verde) y `createFocusedLabel(text)` (canvas con ancho dinámico por `measureText`, fondo semitransparente, borde sutil).
 - `src/world/Door.ts` — lógica de apertura/cierre animada (legacy, no usado con la escena GLTF)
 
 ### UI
 
-- `src/ui/HUDManager.ts` — actualiza barra de alerta, texto de estado y timer en el HUD. **Pendiente: vignette rojo al superar 50% de alerta, hints diegéticos de barrera**
-- `src/ui/TerminalUI.ts` — terminal con input libre: historial ↑↓, Tab completion, Ctrl+L/C, prompt dinámico `user@host:cwd$`. Cierra con backtick. **Pendiente: vignette rojo al superar 50% de alerta**
+- `src/ui/HUDManager.ts` — actualiza barra de alerta, texto de estado y timer
+- `src/ui/TerminalUI.ts` — terminal con input libre: historial ↑↓, Tab completion, Ctrl+L/C, prompt dinámico. Maneja `commandSuccess` y `doorUnlocked` tanto para `correctCommand` como para `secondCommand`. Cierra con backtick.
 - `src/ui/PauseMenu.ts` — overlay de pausa (ESC); tiene prioridad sobre otros listeners de ESC
 - `src/ui/NarrativeScreen.ts` — pantalla de narrativa/intro con efecto typewriter
-- `src/ui/DevPanel.ts` — panel de desarrollo (solo en dev mode): teleport a zonas, toggle de colisiones, posición en tiempo real + copia al clipboard
+- `src/ui/DevPanel.ts` — panel dev: teleport a zonas, toggle de colisiones, posición en tiempo real + copia al clipboard
 
 ### Efectos y shaders
 
@@ -161,9 +166,9 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 
 ### Datos y tipos
 
-- `src/data/scenarios.ts` — definición de escenarios: textos narrativos, `correctCommand`, `basePath` (cwd al abrir), `targetPath` (cwd tras unlock en puertas), `allowCd`, `requiredObjectives`
-- `src/data/filesystem.ts` — árbol estático del VFS. Estructura anidada que espeja el mapa: `/home/jperez/Desktop/Documents/`. Cada habitación es un directorio; los archivos que el jugador puede ver en la sala son los hijos de ese nodo
-- `src/types/game.ts` — tipos e interfaces compartidos entre sistemas
+- `src/data/scenarios.ts` — escenarios de Etapas 1 y 2: `correctCommand`, `secondCommand` (opcional, para terminales multi-paso), `basePath`, `targetPath`, `requiredObjectives`, `objectiveId`, `secondUnlocksDoor`
+- `src/data/filesystem.ts` — árbol estático del VFS: `/home/jperez/`, `/home/netops/`, `/home/svc_backup/`, `/shares/IT_backups/` (con `network_map.txt` y `sync_backup.ps1`), `/etc/`, `/var/`, `/proc/`
+- `src/types/game.ts` — tipos compartidos. `Scenario` incluye campos `second*` para terminales multi-paso. `CommandResult` incluye `unlocksDoor` para que el motor de comandos indique qué barrera abrir.
 
 ---
 
@@ -171,19 +176,19 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 
 CustomEvents nativos del DOM (`window.dispatchEvent` / `window.addEventListener`). Todo listener registrado en constructor debe tener su `removeEventListener` en `dispose()`.
 
-| Evento           | Emitido por        | Escuchado por                     |
-| ---------------- | ------------------ | --------------------------------- |
-| `gameOver`       | GameStateManager   | SceneManager, NarrativeScreen     |
-| `levelComplete`  | GameStateManager   | NarrativeScreen                   |
-| `poiFocus`       | PlayerController   | InteractionManager, HUDManager    |
-| `poiBlur`        | PlayerController   | InteractionManager, HUDManager    |
-| `poiInteract`    | InteractionManager | TerminalUI                        |
-| `doorUnlocked`   | TerminalUI         | SceneManager (llama `openDoor()`) |
-| `commandSuccess` | TerminalUI         | AudioManager                      |
-| `commandFail`    | TerminalUI         | AudioManager, GameStateManager    |
-| `objectiveCompleted` | GameStateManager | NotesPanel (via `refreshObjectives`) |
-| `gamePaused`     | PlayerController   | PauseMenu, SceneManager           |
-| `gameResumed`    | PlayerController   | PauseMenu, SceneManager           |
+| Evento           | Emitido por        | Escuchado por                                  |
+| ---------------- | ------------------ | ---------------------------------------------- |
+| `gameOver`       | GameStateManager   | SceneManager, NarrativeScreen                  |
+| `levelComplete`  | GameStateManager   | NarrativeScreen                                |
+| `poiFocus`       | PlayerController   | InteractionManager, HUDManager, FilePOI, TerminalPOI |
+| `poiBlur`        | PlayerController   | InteractionManager, HUDManager, FilePOI, TerminalPOI |
+| `poiInteract`    | InteractionManager | TerminalUI                                     |
+| `doorUnlocked`   | TerminalUI         | SceneManager (`openDoor()`), WorldBuilder (drone) |
+| `commandSuccess` | TerminalUI         | AudioManager                                   |
+| `commandFail`    | TerminalUI         | AudioManager, GameStateManager                 |
+| `gamePaused`     | PlayerController   | PauseMenu, SceneManager                        |
+| `gameResumed`    | PlayerController   | PauseMenu, SceneManager                        |
+| `levelSpawnReady`| WorldBuilder       | SceneManager (teleporta al spawn)              |
 
 ---
 
@@ -211,3 +216,5 @@ CustomEvents nativos del DOM (`window.dispatchEvent` / `window.addEventListener`
 - No romper el loop existente en `SceneManager.animate()`
 - No usar `visible=false` para deshabilitar colisión/interacción — remover del array `collidables[]` o `interactables[]`
 - No asumir que ESC está libre — consultar estado de terminal y pausa antes de asignar ese listener
+- No agregar un modelo GLB y asumir que su pivot está en el centro visual — los GLBs de Sketchfab suelen tener offsets internos. `TerminalPOI` usa un pivot wrapper que resuelve esto; `FilePOI` resetea `root.position` antes de calcular el bbox.
+- No agregar escenarios con `secondCommand` sin verificar que el comando no sea interceptado por VirtualFS antes de llegar a la capa narrativa (ej: `su` es manejado por VFS como error genérico — el `secondCommand` lo intercepta en capa 1b antes que VFS)

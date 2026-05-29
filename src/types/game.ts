@@ -10,6 +10,8 @@ export interface CommandResult {
   objectiveId?: string;
   /** When true, TerminalUI clears the visible history */
   clear?: boolean;
+  /** poiId of a barrier to auto-open after this command succeeds */
+  unlocksDoor?: string;
 }
 
 export type VFSNode =
@@ -34,4 +36,12 @@ export interface Scenario {
   allowCd?: boolean;
   /** cwd to set in VirtualFS after a successful narrative unlock */
   targetPath?: string;
+  // ── Optional second narrative command (multi-step terminals) ─────────
+  secondCommand?: string;
+  secondRequiredObjectives?: readonly string[];
+  secondSuccessOutput?: string;
+  secondConclusion?: string;
+  secondObjectiveId?: string;
+  /** poiId of a barrier to auto-open when secondCommand succeeds */
+  secondUnlocksDoor?: string;
 }

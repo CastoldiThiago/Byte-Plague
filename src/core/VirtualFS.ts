@@ -173,7 +173,7 @@ export class VirtualFS {
     for (const arg of args) {
       if (this.restrictedFile !== null) {
         const basename = arg.split('/').pop() ?? arg;
-        if (basename !== this.restrictedFile) {
+        if (basename !== this.restrictedFile && arg !== this.restrictedFile) {
           results.push(`cat: ${arg}: Permission denied`);
           continue;
         }

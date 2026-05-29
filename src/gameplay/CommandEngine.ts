@@ -41,6 +41,31 @@ export class CommandEngine {
       };
     }
 
+    // ── 1b. Second narrative command (multi-step terminals) ──────────────
+    if (
+      scenario !== undefined &&
+      scenario.secondCommand !== undefined &&
+      raw === scenario.secondCommand
+    ) {
+      const requirements = scenario.secondRequiredObjectives ?? [];
+      const hasAll = requirements.every(r => unlockedObjectives.includes(r));
+
+      if (!hasAll) {
+        return {
+          success: false,
+          feedback: '[ERROR] Acceso denegado. Completá los pasos anteriores primero.',
+        };
+      }
+
+      return {
+        success: true,
+        feedback: scenario.secondSuccessOutput ?? '',
+        conclusion: scenario.secondConclusion,
+        objectiveId: scenario.secondObjectiveId,
+        unlocksDoor: scenario.secondUnlocksDoor,
+      };
+    }
+
     // ── 2. Generic VFS command ───────────────────────────────────────────
     const vfsResult = this.vfs.tryExecute(raw);
     if (vfsResult !== null) return vfsResult;

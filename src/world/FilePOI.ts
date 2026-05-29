@@ -92,6 +92,9 @@ export class FilePOI {
 
       const root = gltf.scene;
 
+      // Reset any built-in position offset from the GLB before computing bounds
+      root.position.set(0, 0, 0);
+
       // Normalize so max(width, depth) == TARGET_WIDTH
       const box0 = new THREE.Box3().setFromObject(root);
       const size0 = box0.getSize(new THREE.Vector3());

@@ -207,6 +207,200 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     basePath: '/home/jperez',
   },
 
+  /* ════════════════════════════════════════════════════════════════════
+     ETAPA 2 — Escalada de privilegios
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ── Barrera: servidor compartido ───────────────────────────────── */
+  'puerta-shares': {
+    label: 'Puerta: Servidor compartido /shares',
+    prompt: 'Accedé al servidor de archivos compartidos.',
+    choices: [
+      { command: 'cd /shares', description: 'navega al servidor compartido' },
+    ],
+    correctCommand: 'cd /shares',
+    hint: 'Usá cd /shares para entrar al servidor de archivos',
+    helpText: 'Uso: cd [directorio]\nNavega al directorio especificado.\n\nEl servidor compartido está montado en /shares.',
+    successOutput:
+      '[OK] /shares\n\n' +
+      'Conexion al servidor de archivos establecida.\n\n' +
+      'Directorios disponibles:\n' +
+      '  IT_backups/\n' +
+      '  Finance/\n' +
+      '  HR/\n\n' +
+      'Explorá IT_backups — el equipo de IT suele guardar scripts ahí.',
+    conclusion: 'Dentro del servidor compartido. IT_backups puede tener información útil.',
+    failOutput: '[ERROR] Directorio no encontrado. Usá cd /shares para acceder.',
+    basePath: '/home/netops',
+    allowCd: true,
+    targetPath: '/shares',
+  },
+
+  /* ── Archivos en /shares ─────────────────────────────────────────── */
+  'archivo-network-map': {
+    label: 'Archivo: network_map.txt',
+    prompt: 'Leé el mapa de red interna.',
+    choices: [
+      { command: 'cat /shares/IT_backups/network_map.txt', description: 'muestra el mapa de red' },
+    ],
+    correctCommand: 'cat /shares/IT_backups/network_map.txt',
+    hint: 'Usá la ruta completa: cat /shares/IT_backups/network_map.txt',
+    helpText: 'Uso: cat [ruta]\nMuestra el contenido de un archivo.\n\nLos archivos de IT_backups requieren ruta completa.',
+    successOutput:
+      '[OK] /shares/IT_backups/network_map.txt\n\n' +
+      'Network Topology Map — IT Ops v2.1\n\n' +
+      'Segmentos internos:\n' +
+      '  corp-core:   10.10.0.0/24\n' +
+      '    GW-core:   10.10.0.1\n' +
+      '    GW-ops:    10.10.0.20\n' +
+      '    DC01:      10.10.0.5   ← Domain Controller\n' +
+      '  db-segment:  10.10.0.28/30\n' +
+      '    DB01:      10.10.0.30\n\n' +
+      'PRIORIDAD: DC01 en 10.10.0.5 controla todo el dominio.',
+    conclusion: 'IPs internas mapeadas. El DC está en 10.10.0.5. Buscá credenciales para acceder.',
+    failOutput: '[ERROR] Ruta incorrecta. Usá la ruta completa del archivo.',
+    objectiveId: 'network-map',
+    basePath: '/shares/IT_backups',
+  },
+
+  'archivo-sync-backup': {
+    label: 'Archivo: sync_backup.ps1',
+    prompt: 'Leé el script de backup en busca de credenciales.',
+    choices: [
+      { command: 'cat /shares/IT_backups/sync_backup.ps1', description: 'muestra el script de backup' },
+    ],
+    correctCommand: 'cat /shares/IT_backups/sync_backup.ps1',
+    hint: 'Usá la ruta completa: cat /shares/IT_backups/sync_backup.ps1',
+    helpText: 'Uso: cat [ruta]\nMuestra el contenido de un archivo.\n\nNecesitás el mapa de red primero.',
+    successOutput:
+      '[OK] /shares/IT_backups/sync_backup.ps1\n\n' +
+      '# sync_backup.ps1 — IT Ops\n' +
+      '# TODO: migrar credenciales a vault antes del Q3-2026\n\n' +
+      '$domain = "corp.internal"\n' +
+      '$user   = "domain_admin"\n' +
+      '$pass   = "D0m@1nAdm1n_2026!"  # TEMP hardcodeado\n\n' +
+      'Net-ADUser -Username $user -Password $pass -Domain $domain\n' +
+      'Copy-Item "\\\\srv-dc01\\sysvol" "D:\\backups\\sysvol_$(Get-Date -f yyyyMMdd)"\n\n' +
+      '[CREDENCIALES ENCONTRADAS]\n' +
+      '  usuario:    domain_admin\n' +
+      '  contraseña: D0m@1nAdm1n_2026!',
+    conclusion: 'Credenciales de domain_admin en texto plano. domain_admin : D0m@1nAdm1n_2026!',
+    failOutput: '[ERROR] Acceso denegado. Necesitás el mapa de red primero.',
+    objectiveId: 'admin-password',
+    requiredObjectives: ['network-map'],
+    basePath: '/shares/IT_backups',
+  },
+
+  /* ── Terminal de Kerberoasting ───────────────────────────────────── */
+  'terminal-kerberos': {
+    label: 'Terminal: Kerberoasting',
+    prompt: 'Solicitá un ticket Kerberos para escalar privilegios.',
+    choices: [
+      { command: 'request_ticket svc_backup', description: 'solicita ticket TGS para svc_backup' },
+    ],
+    correctCommand: 'request_ticket svc_backup',
+    hint: 'Solicitá un ticket de servicio con: request_ticket svc_backup',
+    helpText:
+      'Uso: request_ticket [cuenta]\n' +
+      'Solicita un Service Ticket (TGS) de Kerberos para la cuenta.\n' +
+      'El hash del ticket puede crackearse offline para obtener la contraseña.',
+    successOutput:
+      '[OK] Solicitando ticket TGS para svc_backup...\n\n' +
+      '[*] Enumerando cuentas Kerberoasteables en corp.internal\n' +
+      '[+] svc_backup — SPN: backup/srv-dc01.corp.internal\n' +
+      '[*] Solicitando TGS...\n' +
+      '[+] Ticket guardado → svc_backup.ticket\n\n' +
+      'Hash capturado:\n' +
+      '$krb5tgs$23$*svc_backup$CORP.INTERNAL$backup/srv-dc01*\n' +
+      '$a3f8c2d1e4b7a9f0[...truncado...]\n\n' +
+      'Ticket listo. Ahora crackealo con: crack_ticket svc_backup.ticket',
+    conclusion: 'Ticket Kerberos obtenido. Crackealo para extraer la contraseña de svc_backup.',
+    failOutput: '[ERROR] No se pudo obtener el ticket. Verificá la conexión a la red interna.',
+    objectiveId: 'kerberos-ticket',
+    basePath: '/shares',
+    secondCommand: 'crack_ticket svc_backup.ticket',
+    secondRequiredObjectives: ['kerberos-ticket'],
+    secondSuccessOutput:
+      '[OK] Crackeando svc_backup.ticket...\n\n' +
+      '[*] Cargando diccionario rockyou.txt (14.3M entradas)\n' +
+      '[*] Modo híbrido: diccionario + reglas de mutación\n' +
+      '[*] Probando combinaciones...\n' +
+      '...\n' +
+      '[+] CONTRASEÑA ENCONTRADA\n\n' +
+      '  cuenta:     svc_backup\n' +
+      '  contraseña: Backup@2024!\n' +
+      '  dominio:    CORP.INTERNAL\n\n' +
+      'Usá estas credenciales para autenticarte en la puerta del DC.',
+    secondConclusion: 'svc_backup crackeado: Backup@2024! — Autenticate en la puerta del controlador de dominio.',
+    secondObjectiveId: 'cracked-password',
+  },
+
+  /* ── Barrera: controlador de dominio ─────────────────────────────── */
+  'puerta-dc': {
+    label: 'Puerta: Controlador de dominio',
+    prompt: 'Autenticate como svc_backup para acceder al DC.',
+    choices: [
+      { command: 'su svc_backup', description: 'cambia a la cuenta de servicio de backup' },
+    ],
+    correctCommand: 'su svc_backup',
+    hint: 'Autenticate con las credenciales crackeadas: su svc_backup',
+    helpText:
+      'Uso: su [usuario]\n' +
+      'Cambia la identidad al usuario especificado.\n\n' +
+      'Necesitás el ticket Kerberos crackeado para autenticarte.',
+    successOutput:
+      '[OK] Autenticado como svc_backup\n\n' +
+      'Sesion iniciada: svc_backup@corp.internal\n' +
+      'Tipo de cuenta: service account (Backup Operators)\n' +
+      'Acceso al controlador de dominio: HABILITADO\n\n' +
+      'Nivel de privilegio insuficiente para archivos críticos.\n' +
+      'Necesitás escalar a domain_admin desde el DC.',
+    conclusion: 'Sesión como svc_backup activa. Accedé al DC para escalar a domain_admin.',
+    failOutput: '[ERROR] Autenticación fallida. Necesitás crackear el ticket de svc_backup primero.',
+    objectiveId: 'acceso-dc',
+    requiredObjectives: ['kerberos-ticket', 'cracked-password'],
+    basePath: '/shares',
+  },
+
+  /* ── Terminal central del DC ─────────────────────────────────────── */
+  'terminal-dc': {
+    label: 'Terminal: Controlador de dominio',
+    prompt: 'Enumerá los grupos administrativos del dominio.',
+    choices: [
+      { command: 'net group "Domain Admins" /domain', description: 'lista miembros del grupo Domain Admins' },
+    ],
+    correctCommand: 'net group "Domain Admins" /domain',
+    hint: 'Listá los administradores de dominio: net group "Domain Admins" /domain',
+    helpText:
+      'Uso: net group [grupo] /domain\n' +
+      'Lista los miembros de un grupo de Active Directory.\n\n' +
+      'Usá comillas si el nombre contiene espacios.',
+    successOutput:
+      '[OK] Grupo: Domain Admins\n' +
+      'Comentario: Designated administrators of the domain\n\n' +
+      'Miembros:\n' +
+      '  domain_admin         Administrator        svc_mgmt\n\n' +
+      'El comando se completó correctamente.\n\n' +
+      'Usuario domain_admin confirmado con privilegios máximos.\n' +
+      'Escalá con: su domain_admin',
+    conclusion: 'domain_admin existe. Usá las credenciales del script para escalar.',
+    failOutput: '[ERROR] Acceso denegado al directorio activo.',
+    basePath: '/home/svc_backup',
+    secondCommand: 'su domain_admin',
+    secondRequiredObjectives: ['admin-password'],
+    secondSuccessOutput:
+      '[OK] Autenticado como domain_admin\n\n' +
+      'Sesion iniciada: domain_admin@corp.internal\n' +
+      'Privilegios: Domain Administrator\n' +
+      'Acceso a archivos críticos: DESBLOQUEADO\n\n' +
+      '[SISTEMA] Nivel de privilegio máximo alcanzado.\n' +
+      '[SISTEMA] Acceso a /critical concedido.\n' +
+      '[ALERTA]  El antivirus detectó escalada de privilegios.',
+    secondConclusion: 'Sos domain_admin. El acceso a los archivos críticos está abierto.',
+    secondObjectiveId: 'domain-admin-access',
+    secondUnlocksDoor: 'puerta-critica',
+  },
+
   /* ── Archivo extra (sala red interna) ───────────────────────────── */
   'archivo-red': {
     label: 'Archivo: network-map.json',

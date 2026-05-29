@@ -6,6 +6,26 @@ export const FILESYSTEM: VFSNode = {
     home: {
       type: 'dir',
       children: {
+        netops: {
+          type: 'dir',
+          children: {
+            '.bashrc': {
+              type: 'file',
+              hidden: true,
+              content: '# .bashrc — netops\nexport PATH=$PATH:/usr/local/bin\n',
+            },
+          },
+        },
+        svc_backup: {
+          type: 'dir',
+          children: {
+            '.bashrc': {
+              type: 'file',
+              hidden: true,
+              content: '# .bashrc — svc_backup\nexport PATH=$PATH:/usr/local/bin\n',
+            },
+          },
+        },
         jperez: {
           type: 'dir',
           children: {
@@ -153,6 +173,45 @@ export const FILESYSTEM: VFSNode = {
             },
           },
         },
+      },
+    },
+    shares: {
+      type: 'dir',
+      children: {
+        IT_backups: {
+          type: 'dir',
+          children: {
+            'network_map.txt': {
+              type: 'file',
+              content:
+                'Network Topology Map — IT Ops v2.1\n' +
+                'Generado: 2026-04-22\n\n' +
+                'Segmentos internos:\n' +
+                '  corp-core:   10.10.0.0/24\n' +
+                '    GW-core:   10.10.0.1   (router-core.corp.internal)\n' +
+                '    GW-ops:    10.10.0.20  (gw-ops.corp.internal)\n' +
+                '    DC01:      10.10.0.5   (Domain Controller — objetivo)\n' +
+                '  db-segment:  10.10.0.28/30\n' +
+                '    DB01:      10.10.0.30  (servidor de base de datos)\n\n' +
+                'PRIORIDAD: DC01 en 10.10.0.5 controla todo el dominio.',
+            },
+            'sync_backup.ps1': {
+              type: 'file',
+              content:
+                '# sync_backup.ps1 — IT Ops\n' +
+                '# Autor: svc_backup@corp.internal\n' +
+                '# TODO: migrar credenciales a vault antes del Q3-2026\n\n' +
+                '$domain = "corp.internal"\n' +
+                '$user   = "domain_admin"\n' +
+                '$pass   = "D0m@1nAdm1n_2026!"  # TEMP hardcodeado\n\n' +
+                'Net-ADUser -Username $user -Password $pass -Domain $domain\n' +
+                'Copy-Item "\\\\srv-dc01\\sysvol" "D:\\backups\\sysvol_$(Get-Date -f yyyyMMdd)"\n' +
+                'Write-Host "Backup completado OK"',
+            },
+          },
+        },
+        Finance: { type: 'dir', children: {} },
+        HR:       { type: 'dir', children: {} },
       },
     },
     tmp: {

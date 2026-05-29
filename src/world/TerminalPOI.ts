@@ -1,6 +1,12 @@
 import * as THREE from 'three';
-import terminalUrl from '../assets/models/scifi_terminal.glb?url';
+import terminalUrl      from '../assets/models/scifi_terminal.glb?url';
+import monitoringUrl    from '../assets/models/terminal.glb?url';
 import { createDotSprite, createFocusedLabel, disposeSprite } from './LabelSprite';
+
+const MODEL_URLS = {
+  terminal:   terminalUrl,
+  monitoring: monitoringUrl,
+} as const;
 
 export interface TerminalPOIConfig {
   poiId: string;
@@ -9,6 +15,10 @@ export interface TerminalPOIConfig {
   z: number;
   /** Rotation around Y axis in radians. 0 = facing +Z, Math.PI = facing -Z. */
   rotY?: number;
+  /** 3D model to use. Defaults to 'terminal' (scifi_terminal.glb). */
+  model?: keyof typeof MODEL_URLS;
+  /** Override the normalized max XZ size in world units. Defaults to TARGET_WIDTH (1.20). */
+  targetWidth?: number;
 }
 
 interface FocusDetail { poiId: string }
@@ -40,7 +50,7 @@ export class TerminalPOI {
     config: TerminalPOIConfig,
     interactables: THREE.Object3D[],
   ) {
-    const { poiId, label, x, z, rotY = 0 } = config;
+    const { poiId, label, x, z, rotY = 0, model = 'terminal', targetWidth = TARGET_WIDTH } = config;
     this.poiId = poiId;
     this.scene  = scene;
 
@@ -67,40 +77,44 @@ export class TerminalPOI {
     this.labelSprite.visible = false;
     scene.add(this.labelSprite);
 
-    void this.loadTerminal(x, z, rotY);
+    void this.loadTerminal(x, z, rotY, MODEL_URLS[model], targetWidth);
 
     window.addEventListener('poiFocus', this.onFocus);
     window.addEventListener('poiBlur',  this.onBlur);
   }
 
-  private async loadTerminal(worldX: number, worldZ: number, rotY: number): Promise<void> {
+  private async loadTerminal(worldX: number, worldZ: number, rotY: number, url: string, targetWidth: number): Promise<void> {
     try {
       const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const loader = new GLTFLoader();
       const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
-        loader.load(terminalUrl, resolve, undefined, reject);
+        loader.load(url, resolve, undefined, reject);
       });
 
       const root = gltf.scene;
 
-      // Normalize so max(width, depth) == TARGET_WIDTH
+      // Reset any built-in position offset from the GLB before computing bounds
+      root.position.set(0, 0, 0);
+
+      // Normalize so max(width, depth) == targetWidth
       const box0 = new THREE.Box3().setFromObject(root);
       const size0 = box0.getSize(new THREE.Vector3());
       const maxXZ = Math.max(size0.x, size0.z);
-      if (maxXZ > 0) root.scale.setScalar(TARGET_WIDTH / maxXZ);
+      if (maxXZ > 0) root.scale.setScalar(targetWidth / maxXZ);
 
-      // Recompute bbox after scaling
+      // Compute bbox BEFORE rotation to get stable center and floor offset
       const box = new THREE.Box3().setFromObject(root);
       const center = box.getCenter(new THREE.Vector3());
-      const modelHeight = box.max.y - box.min.y;
 
-      // Center XZ, bottom flush with floor (y=0), apply rotation
-      root.position.set(
-        worldX - center.x,
-        -box.min.y,
-        worldZ - center.z,
-      );
-      root.rotation.y = rotY;
+      // Wrap in a pivot group so rotation happens around the visual center,
+      // not around the GLB's internal pivot (which is often off-center).
+      const pivot = new THREE.Group();
+      pivot.position.set(worldX, -box.min.y, worldZ);
+      pivot.rotation.y = rotY;
+
+      // Offset root inside pivot so its bbox center sits at pivot's origin
+      root.position.set(-center.x, 0, -center.z);
+      pivot.add(root);
 
       root.traverse((child) => {
         if (!(child instanceof THREE.Mesh)) return;
@@ -108,13 +122,17 @@ export class TerminalPOI {
         child.receiveShadow = true;
       });
 
-      this.scene.add(root);
-      this.terminalRoot = root;
+      this.scene.add(pivot);
+      this.terminalRoot = pivot;
 
-      // Move sprites above the actual model top
-      const worldTop = modelHeight;
-      this.dotSprite.position.y   = worldTop + 0.25;
-      this.labelSprite.position.y = worldTop + 0.50;
+      // Hitbox and sprites at the pivot's world position (stable regardless of rotY)
+      const modelHeight = box.max.y - box.min.y;
+      const worldTop    = -box.min.y + modelHeight;
+      const spriteY     = Math.min(worldTop, 2.20);
+
+      this.hitbox.position.set(worldX, worldTop / 2, worldZ);
+      this.dotSprite.position.set(worldX,  spriteY + 0.20, worldZ);
+      this.labelSprite.position.set(worldX, spriteY + 0.45, worldZ);
 
     } catch (err) {
       console.warn('scifi_terminal.glb no se pudo cargar:', err);

@@ -218,6 +218,12 @@ export class TerminalUI {
         if (targetPath !== undefined) this.vfs.setCwd(targetPath);
         window.dispatchEvent(new CustomEvent('doorUnlocked', { detail: { poiId: this.currentPoiId } }));
         window.dispatchEvent(new CustomEvent('commandSuccess'));
+      } else if (SCENARIOS_HAS_SECOND(this.currentPoiId, raw)) {
+        // Second command of a multi-step terminal
+        if (result.unlocksDoor !== undefined) {
+          window.dispatchEvent(new CustomEvent('doorUnlocked', { detail: { poiId: result.unlocksDoor } }));
+        }
+        window.dispatchEvent(new CustomEvent('commandSuccess'));
       }
     } else {
       // Raise alert only on narrative failure (wrong command at the POI's terminal)
@@ -419,4 +425,8 @@ function SCENARIOS_HAS(poiId: string, command: string | null): boolean {
   if (s === undefined) return false;
   if (command === null) return true;
   return s.correctCommand === command;
+}
+function SCENARIOS_HAS_SECOND(poiId: string, command: string): boolean {
+  const s = SCENARIOS[poiId];
+  return s !== undefined && s.secondCommand === command;
 }
