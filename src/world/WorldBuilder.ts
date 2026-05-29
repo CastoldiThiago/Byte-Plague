@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import droneUrl from '../assets/models/drone.glb?url';
 import { HolographicBarrier } from './HolographicBarrier';
 import { FilePOI } from './FilePOI';
 import { TerminalPOI } from './TerminalPOI';
@@ -12,30 +11,16 @@ export class WorldBuilder {
   private readonly filePOIs: FilePOI[] = [];
   private readonly terminalPOIs: TerminalPOI[] = [];
   private spawnPoint = new THREE.Vector3(0, 1.7, 6);
-  private drone: THREE.Group | null = null;
-  private droneTime = 0;
-  private droneBaseY = 3.5;
-  private droneActive = false;
 
   public constructor(scene: THREE.Scene) {
     this.scene = scene;
-    window.addEventListener('doorUnlocked', this.onDoorUnlocked);
   }
-
-  private readonly onDoorUnlocked = (e: Event): void => {
-    const { poiId } = (e as CustomEvent<{ poiId: string }>).detail;
-    if (poiId === 'puerta-red-interna') {
-      this.droneActive = true;
-      if (this.drone !== null) this.drone.visible = true;
-    }
-  };
 
   public build(): { interactables: THREE.Object3D[]; collidables: THREE.Object3D[] } {
     const interactables: THREE.Object3D[] = [];
     const collidables: THREE.Object3D[] = [];
 
     void this.loadLevelModel(interactables, collidables);
-    void this.loadDrone();
     this.createTerminalPOIs(interactables);
     this.createFilePOIs(interactables);
 
@@ -57,12 +42,6 @@ export class WorldBuilder {
 
     for (const poi of this.filePOIs) poi.update(deltaTime);
     for (const poi of this.terminalPOIs) poi.update(deltaTime);
-
-    if (this.drone !== null) {
-      this.droneTime += deltaTime;
-      this.drone.position.y = this.droneBaseY + Math.sin(this.droneTime * 1.4) * 0.12;
-      this.drone.rotation.y += deltaTime * 0.4;
-    }
   }
 
   public dispose(): void {
@@ -83,23 +62,10 @@ export class WorldBuilder {
     }
     this.modelRoots.length = 0;
 
-    if (this.drone !== null) {
-      this.scene.remove(this.drone);
-      this.drone.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          for (const m of mats) m.dispose();
-        }
-      });
-      this.drone = null;
-    }
-
     for (const poi of this.filePOIs) poi.dispose();
     this.filePOIs.length = 0;
     for (const poi of this.terminalPOIs) poi.dispose();
     this.terminalPOIs.length = 0;
-    window.removeEventListener('doorUnlocked', this.onDoorUnlocked);
   }
 
   private createTerminalPOIs(interactables: THREE.Object3D[]): void {
@@ -207,24 +173,5 @@ export class WorldBuilder {
     }
   }
 
-  private async loadDrone(): Promise<void> {
-    try {
-      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-      const loader = new GLTFLoader();
-      const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
-        loader.load(droneUrl, resolve, undefined, reject);
-      });
-
-      this.drone = gltf.scene;
-      this.drone.position.set(0.97, this.droneBaseY, -25.49);
-      this.drone.scale.setScalar(0.008);
-      this.drone.visible = this.droneActive;
-      this.drone.traverse((child) => {
-        if (child instanceof THREE.Mesh) child.castShadow = true;
-      });
-      this.scene.add(this.drone);
-    } catch (err) {
-      console.warn('drone.glb no se pudo cargar:', err);
-    }
-  }
 }
+

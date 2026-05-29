@@ -20,7 +20,7 @@ export class HUDManager {
   private readonly tick = (): void => {
     const state = GameStateManager.getInstance();
     this.updateAlert(state.alertLevel);
-    this.updateTimer(state.timerSeconds);
+    this.updateTimer(state.timerSeconds, state.currentLevel);
   };
 
   private updateAlert(level: number): void {
@@ -40,10 +40,10 @@ export class HUDManager {
     }
   }
 
-  private updateTimer(secs: number): void {
+  private updateTimer(secs: number, stage: number): void {
     const min = Math.floor(secs / 60).toString().padStart(2, '0');
     const sec = (secs % 60).toString().padStart(2, '0');
-    this.timerDisplay.textContent = `TIEMPO: ${min}:${sec}`;
+    this.timerDisplay.textContent = `ETAPA ${stage} — ${min}:${sec}`;
     this.timerDisplay.style.color = secs <= 30 ? '#ff6b6b' : '#9bff4f';
   }
 }

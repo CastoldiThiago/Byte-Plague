@@ -1,4 +1,5 @@
 import { GameStateManager } from '../core/GameStateManager';
+import { SaveManager } from '../core/SaveManager';
 
 const CHAR_DELAY_MS = 40;
 const LINE_PAUSE_MS = 900;
@@ -14,7 +15,16 @@ const NARRATIVE_INTRO: readonly string[] = [
 ];
 
 const NARRATIVE_LEVEL: Readonly<Record<number, readonly string[]>> = {
-  1: ['Ingresaste a la red interna de la empresa.', 'Ten cuidado con el antivirus... que no te encuentre.'],
+  1: [
+    'Ingresaste a la red interna de la empresa.',
+    'Las credenciales de netops abrieron el camino.',
+    'El antivirus entró en patrulla activa. Moverse rápido.',
+  ],
+  2: [
+    'Privilegios de domain_admin obtenidos.',
+    'El acceso a los archivos críticos está abierto.',
+    'Etapa final: cifrá todo antes de que te encuentren.',
+  ],
 };
 
 const NARRATIVE_LOSE: readonly string[] = [
@@ -42,10 +52,19 @@ export class NarrativeScreen {
     window.addEventListener('gameOver', this.onGameOver);
     window.addEventListener('keydown', this.onKeyDown);
 
+    const save = SaveManager.load();
+    const introLines = save !== null
+      ? [
+          `ETAPA ${save.stage} — CHECKPOINT`,
+          'Retomando desde el último punto de guardado.',
+          'El antivirus sigue activo. Mantené el perfil bajo.',
+        ]
+      : (NARRATIVE_INTRO as string[]);
+
     GameStateManager.getInstance().setPaused(true);
-    this.show(NARRATIVE_INTRO as string[], () => {
+    this.show(introLines, () => {
       GameStateManager.getInstance().setPaused(false);
-      overlay.removeChild(overlay.lastChild);
+      if (overlay.lastChild !== null) overlay.removeChild(overlay.lastChild);
     });
   }
 
@@ -191,9 +210,9 @@ export class NarrativeScreen {
   };
 
   private readonly onGameOver = (): void => {
-    const completed = GameStateManager.getInstance().objectivesCompleted;
-    const won = completed.includes(PRIMARY_OBJECTIVE);
-    this.showEndScreen(won);
+    // "Won" only when the game is fully complete (stage 3 objectives done).
+    // For now, game over is always a loss.
+    this.showEndScreen(false);
   };
 
   private buildDOM(): { overlay: HTMLElement; textContainer: HTMLElement } {

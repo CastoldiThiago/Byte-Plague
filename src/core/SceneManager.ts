@@ -8,6 +8,22 @@ import { NarrativeScreen } from '../ui/NarrativeScreen';
 import { isDevMode } from './DevMode';
 import { DevPanel } from '../ui/DevPanel';
 import { WorldBuilder } from '../world/WorldBuilder';
+import { AntivirusAgent } from '../gameplay/AntivirusAgent';
+import { SaveManager } from './SaveManager';
+
+// ── Save-point configuration ────────────────────────────────────────────────
+// Spawn positions for each stage (used when restoring from a checkpoint).
+const STAGE_SPAWNS: Readonly<Record<number, THREE.Vector3>> = {
+  1: new THREE.Vector3(-14.80, 1.7,  19.81), // spawn / túnel de entrada
+  2: new THREE.Vector3(  0.97, 1.7, -14.00), // pasillo central, pasada puerta-red-interna
+  3: new THREE.Vector3( 19.00, 1.7, -13.46), // sala crítica, pasada puerta-critica
+};
+
+// Barriers to pre-open when restoring to a given stage (all barriers from prior stages).
+const STAGE_PREREQ_DOORS: Readonly<Record<number, readonly string[]>> = {
+  2: ['puerta-clientes', 'puerta-soporte', 'puerta-red-interna'],
+  3: ['puerta-clientes', 'puerta-soporte', 'puerta-red-interna', 'puerta-shares', 'puerta-dc', 'puerta-critica'],
+};
 
 export class SceneManager {
   private readonly scene: THREE.Scene;
@@ -20,6 +36,7 @@ export class SceneManager {
   private readonly terminalUI: TerminalUI;
   private readonly narrativeScreen: NarrativeScreen | null;
   private readonly audioManager: AudioManager;
+  private readonly antivirusAgent: AntivirusAgent;
   private animationFrameId: number | null = null;
   private isPaused = false;
   private devPanel: DevPanel | null = null;
@@ -42,8 +59,25 @@ export class SceneManager {
   };
 
   private levelSpawnReadyHandler = (event: Event): void => {
-    const { x, y, z } = (event as CustomEvent<{ x: number; y: number; z: number }>).detail;
-    this.playerController.teleportTo(new THREE.Vector3(x, y, z));
+    const save = SaveManager.load();
+    if (save !== null && save.stage > 1) {
+      // Restore from checkpoint: pre-open prior-stage barriers, teleport, activate antivirus
+      for (const doorId of STAGE_PREREQ_DOORS[save.stage] ?? []) {
+        this.worldBuilder.openDoor(doorId);
+      }
+      this.playerController.teleportTo(STAGE_SPAWNS[save.stage] ?? this.worldBuilder.getSpawnPoint());
+      if (save.stage >= 2) this.antivirusAgent.activateStage2();
+      if (save.stage >= 3) this.antivirusAgent.activateStage3();
+    } else {
+      const { x, y, z } = (event as CustomEvent<{ x: number; y: number; z: number }>).detail;
+      this.playerController.teleportTo(new THREE.Vector3(x, y, z));
+    }
+  };
+
+  private readonly levelCompleteHandler = (event: Event): void => {
+    const { level } = (event as CustomEvent<{ level: number }>).detail;
+    // Save checkpoint for the next stage so the player can retry from here if they fail
+    SaveManager.save(level + 1, GameStateManager.getInstance().objectivesCompleted);
   };
 
   private doorUnlockedHandler = (event: Event): void => {
@@ -92,6 +126,7 @@ export class SceneManager {
     this.interactionManager = new InteractionManager();
     this.narrativeScreen = isDevMode() ? null as any : new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
+    this.antivirusAgent = new AntivirusAgent(this.scene, this.camera, this.audioManager.audioListener);
 
     GameStateManager.getInstance();
     window.addEventListener('resize', this.resizeHandler);
@@ -100,6 +135,7 @@ export class SceneManager {
     window.addEventListener('gamePaused', this.gamePausedHandler);
     window.addEventListener('gameResumed', this.gameResumedHandler);
     window.addEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
+    window.addEventListener('levelComplete', this.levelCompleteHandler);
 
     this.playerController.teleportTo(this.worldBuilder.getSpawnPoint());
 
@@ -139,7 +175,9 @@ export class SceneManager {
     window.removeEventListener('gamePaused', this.gamePausedHandler);
     window.removeEventListener('gameResumed', this.gameResumedHandler);
     window.removeEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
+    window.removeEventListener('levelComplete', this.levelCompleteHandler);
     if (this.devPanel) this.devPanel.dispose();
+    this.antivirusAgent.dispose();
     this.audioManager.dispose();
     this.playerController.dispose();
     this.interactionManager.dispose();
@@ -157,6 +195,7 @@ export class SceneManager {
       const deltaTime = this.timer.getDelta();
       this.playerController.update(deltaTime);
       this.worldBuilder.update(deltaTime);
+      this.antivirusAgent.update(deltaTime);
       this.audioManager.update();
     }
 

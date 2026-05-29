@@ -1,4 +1,5 @@
 import { isDevMode } from './DevMode';
+import { SaveManager } from './SaveManager';
 
 export class GameStateManager {
   private static instance: GameStateManager | null = null;
@@ -11,12 +12,28 @@ export class GameStateManager {
   private _isPaused = false;
   private _terminalOpen = false;
 
+  // Seconds allotted per stage. Adjust here to tune difficulty.
+  public static readonly STAGE_TIMERS: Readonly<Record<number, number>> = {
+    1: 180, // 3 min — encontrar credenciales y acceder a la red interna
+    2: 300, // 5 min — escalar privilegios
+    3: 240, // 4 min — cifrar archivos críticos
+  };
+
   private static readonly LEVEL_OBJECTIVES: Readonly<Record<number, readonly string[]>> = {
     1: ['acceso-red-interna'],
     2: ['domain-admin-access'],
   };
 
   private constructor() {
+    const save = SaveManager.load();
+    if (save !== null) {
+      this._currentLevel = save.stage;
+      this._objectivesCompleted = [...save.objectives];
+      this._timerSeconds = GameStateManager.STAGE_TIMERS[save.stage] ?? 180;
+    } else {
+      this._timerSeconds = GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180;
+    }
+
     if (!isDevMode()) {
       this._timerIntervalId = window.setInterval(this.tickTimer, 1000);
     }
@@ -87,6 +104,7 @@ export class GameStateManager {
         new CustomEvent('levelComplete', { detail: { level: this._currentLevel } }),
       );
       this._currentLevel++;
+      this._timerSeconds = GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180;
     }
   }
 
@@ -94,7 +112,7 @@ export class GameStateManager {
     this._alertLevel = 0;
     this._currentLevel = 1;
     this._objectivesCompleted = [];
-    this._timerSeconds = 180;
+    this._timerSeconds = GameStateManager.STAGE_TIMERS[1] ?? 180;
     this._isPaused = false;
     this.stopTimer();
     if (!isDevMode()) {
