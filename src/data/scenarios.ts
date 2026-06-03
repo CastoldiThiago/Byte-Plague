@@ -120,9 +120,19 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     hint: 'Para leer el contenido de un archivo usá: cat [nombre]',
     helpText: 'Uso: cat [archivo]\nMuestra el contenido de un archivo en pantalla.\n\nUsá ls para ver los archivos disponibles en este directorio.',
     successOutput:
-      '[OK] procedimientos.md — Manual IT Interno v3.2\n\n1. Tickets: jira.corp.internal\n2. Escalado: Tier1 → Tier2 → Tier3\n3. Ventana mant.: domingos 02:00-06:00 UTC\n4. Guardia: soporte@empresa.local ext.208\n\n[Sin datos de red relevantes para la mision]',
-    conclusion: 'Manual de procedimientos IT. Sin informacion util.',
+      '[OK] procedimientos.md — Manual IT Interno v3.2\n\n' +
+      '1. Tickets: jira.corp.internal\n' +
+      '2. Escalado: Tier1 → Tier2 → Tier3\n' +
+      '3. Ventana mant.: domingos 02:00-06:00 UTC\n' +
+      '4. Guardia: soporte@empresa.local ext.208\n\n' +
+      'Apéndice C — Herramientas de diagnóstico de red\n' +
+      '  /opt/tools/traffic_spoof.exe — genera tráfico señuelo para\n' +
+      '  redirigir sistemas de monitoreo a segmentos inactivos.\n' +
+      '  USO INTERNO — requiere autorización de nivel 2.\n\n' +
+      '[HERRAMIENTA ENCONTRADA] traffic_spoof.exe copiado al entorno.',
+    conclusion: 'Manual IT con referencia a traffic_spoof.exe — una herramienta de señuelo de tráfico.',
     failOutput: '[ERROR] Comando no reconocido. Escribi /help para ayuda.',
+    objectiveId: 'item-traffic-spoof',
     basePath: '/home/jperez/Desktop/Documents',
   },
 
@@ -153,9 +163,20 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     hint: 'Para ver conexiones de red activas usá: netstat [opciones]',
     helpText: 'Uso: netstat [opciones]\nMuestra las conexiones de red activas y puertos en escucha.\n  -a  muestra todos los sockets\n  -n  muestra IPs numéricas sin resolver nombres',
     successOutput:
-      '[OK] Conexiones activas:\n\nProto  Origen             Destino            Estado\nTCP    192.168.1.67:49201  10.10.0.20:22     ESTABLISHED\nTCP    192.168.1.67:49350  172.16.5.11:443   TIME_WAIT\nTCP    127.0.0.1:8080      0.0.0.0:*         LISTEN\n\n>> SESION SSH ACTIVA detectada: 192.168.1.67 → 10.10.0.20:22\n>> Puerto 22 confirmado. Esta maquina ya establecio contacto con la red interna.',
-    conclusion: 'Puerto y host confirmados: SSH a 10.10.0.20:22. Buscá credenciales para usar esa ruta.',
+      '[OK] Conexiones activas:\n\n' +
+      'Proto  Origen              Destino            Estado\n' +
+      'TCP    192.168.1.67:49201  10.10.0.20:22      ESTABLISHED\n' +
+      'TCP    192.168.1.67:49350  172.16.5.11:443    TIME_WAIT\n' +
+      'TCP    127.0.0.1:8080      0.0.0.0:*          LISTEN\n\n' +
+      '>> SESION SSH ACTIVA: 192.168.1.67 → 10.10.0.20:22\n' +
+      '>> Puerto 22 confirmado. Contacto con la red interna establecido.\n\n' +
+      'Archivos del script:\n' +
+      '  terminal_red.sh\n' +
+      '  firewall_rule.sh   ← script de bloqueo de tráfico de monitoreo\n\n' +
+      '[HERRAMIENTA ENCONTRADA] firewall_rule.sh copiado al entorno.',
+    conclusion: 'Conexión SSH confirmada. Además encontraste firewall_rule.sh — un script para bloquear el tráfico del scanner.',
     failOutput: '[ERROR] Comando no reconocido. Escribi /help para el formato.',
+    objectiveId: 'item-firewall-rule',
     basePath: '/home/jperez/Desktop',
   },
 
@@ -241,11 +262,11 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     label: 'Archivo: network_map.txt',
     prompt: 'Leé el mapa de red interna.',
     choices: [
-      { command: 'cat /shares/IT_backups/network_map.txt', description: 'muestra el mapa de red' },
+      { command: 'cat network_map.txt', description: 'muestra el mapa de red' },
     ],
-    correctCommand: 'cat /shares/IT_backups/network_map.txt',
-    hint: 'Usá la ruta completa: cat /shares/IT_backups/network_map.txt',
-    helpText: 'Uso: cat [ruta]\nMuestra el contenido de un archivo.\n\nLos archivos de IT_backups requieren ruta completa.',
+    correctCommand: 'cat network_map.txt',
+    hint: 'Usá cat network_map.txt para leer el archivo',
+    helpText: 'Uso: cat [archivo]\nMuestra el contenido de un archivo en pantalla.\n\nEstás en /shares/IT_backups — podés leer directamente por nombre.',
     successOutput:
       '[OK] /shares/IT_backups/network_map.txt\n\n' +
       'Network Topology Map — IT Ops v2.1\n\n' +
@@ -267,11 +288,11 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     label: 'Archivo: sync_backup.ps1',
     prompt: 'Leé el script de backup en busca de credenciales.',
     choices: [
-      { command: 'cat /shares/IT_backups/sync_backup.ps1', description: 'muestra el script de backup' },
+      { command: 'cat sync_backup.ps1', description: 'muestra el script de backup' },
     ],
-    correctCommand: 'cat /shares/IT_backups/sync_backup.ps1',
-    hint: 'Usá la ruta completa: cat /shares/IT_backups/sync_backup.ps1',
-    helpText: 'Uso: cat [ruta]\nMuestra el contenido de un archivo.\n\nNecesitás el mapa de red primero.',
+    correctCommand: 'cat sync_backup.ps1',
+    hint: 'Usá cat sync_backup.ps1 para leer el script',
+    helpText: 'Uso: cat [archivo]\nMuestra el contenido de un archivo en pantalla.\n\nNecesitás el mapa de red primero.',
     successOutput:
       '[OK] /shares/IT_backups/sync_backup.ps1\n\n' +
       '# sync_backup.ps1 — IT Ops\n' +
@@ -399,6 +420,31 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     secondConclusion: 'Sos domain_admin. El acceso a los archivos críticos está abierto.',
     secondObjectiveId: 'domain-admin-access',
     secondUnlocksDoor: 'puerta-critica',
+  },
+
+  /* ── Terminal pasillo central (stealth_mode.bin) ────────────────── */
+  'terminal-central': {
+    label: 'Terminal: Monitoreo de red',
+    prompt: 'Explorá la terminal de monitoreo de la red interna.',
+    choices: [
+      { command: 'cat stealth_mode.bin', description: 'lee el binario de modo stealth' },
+    ],
+    correctCommand: 'cat stealth_mode.bin',
+    hint: 'Ejecutá ls para ver los archivos del directorio, luego cat [nombre] para leer el que te interese.',
+    helpText: 'Uso: cat [archivo]\nMuestra el contenido de un archivo.\n\nEjecutá ls primero para ver qué hay en este directorio.',
+    successOutput:
+      '[OK] stealth_mode.bin — AV Evasion Module v0.4\n\n' +
+      'Descripción: parche de memoria que suprime las firmas de\n' +
+      'escaneo activo del av_scanner (PID 412) por un período\n' +
+      'limitado. Modifica los punteros de callback del driver\n' +
+      'de detección en tiempo real.\n\n' +
+      'Duración estimada: 10 segundos antes de que el watchdog\n' +
+      '(PID 413) restaure el módulo.\n\n' +
+      '[HERRAMIENTA ENCONTRADA] stealth_mode.bin cargado en memoria.',
+    conclusion: 'stealth_mode.bin cargado — el cono del antivirus queda ciego por 10 segundos.',
+    failOutput: '[ERROR] Archivo no encontrado. Explorá el directorio con ls.',
+    objectiveId: 'item-stealth-mode',
+    basePath: '/home/netops',
   },
 
   /* ── Archivo extra (sala red interna) ───────────────────────────── */

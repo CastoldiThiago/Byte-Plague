@@ -436,3 +436,46 @@ body,
 .notes-obj--done .notes-obj-mark {
   color: #9bff4f;
 }
+
+#notes-items-header {
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  color: #9bff4f;
+  padding: 0.4rem 0.75rem;
+  background: rgba(74, 246, 38, 0.06);
+  border-top: 1px solid rgba(74, 246, 38, 0.2);
+  border-bottom: 1px solid rgba(74, 246, 38, 0.2);
+}
+
+#item-slots {
+  padding: 0.45rem 0.75rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.item-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.item-slot-key {
+  min-width: 14px;
+  color: rgba(74, 246, 38, 0.35);
+}
+
+.item-slot.locked .item-slot-name { color: rgba(200, 220, 200, 0.25); }
+
+.item-slot.ready .item-slot-key  { color: #4af626; }
+.item-slot.ready .item-slot-name { color: rgba(74, 246, 38, 0.8); }
+
+.item-slot.active .item-slot-key,
+.item-slot.active .item-slot-name { color: #ffd166; animation: item-pulse 0.7s ease-in-out infinite alternate; }
+
+@keyframes item-pulse {
+  from { opacity: 0.65; }
+  to   { opacity: 1; }
+}

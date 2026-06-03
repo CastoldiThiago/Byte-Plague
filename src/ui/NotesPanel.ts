@@ -96,8 +96,17 @@ export class NotesPanel {
     const objectivesEl = document.createElement('div');
     objectivesEl.id = 'notes-objectives';
 
+    const itemsHeader = document.createElement('div');
+    itemsHeader.id = 'notes-items-header';
+    itemsHeader.textContent = '> HERRAMIENTAS';
+
+    const itemsEl = document.createElement('div');
+    itemsEl.id = 'item-slots';
+
     panel.appendChild(header);
     panel.appendChild(objectivesEl);
+    panel.appendChild(itemsHeader);
+    panel.appendChild(itemsEl);
 
     return { panel, objectivesEl };
   }

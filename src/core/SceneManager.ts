@@ -10,6 +10,7 @@ import { DevPanel } from '../ui/DevPanel';
 import { WorldBuilder } from '../world/WorldBuilder';
 import { AntivirusAgent } from '../gameplay/AntivirusAgent';
 import { SaveManager } from './SaveManager';
+import { EvasionItemManager } from '../gameplay/EvasionItemManager';
 
 // ── Save-point configuration ────────────────────────────────────────────────
 // Spawn positions for each stage (used when restoring from a checkpoint).
@@ -40,6 +41,7 @@ export class SceneManager {
   private animationFrameId: number | null = null;
   private isPaused = false;
   private devPanel: DevPanel | null = null;
+  private readonly evasionItems: EvasionItemManager;
 
   private gameOverHandler = (): void => {
     if (this.animationFrameId !== null) {
@@ -128,6 +130,7 @@ export class SceneManager {
     this.audioManager = new AudioManager(this.camera);
     this.antivirusAgent = new AntivirusAgent(this.scene, this.camera, this.audioManager.audioListener);
 
+    this.evasionItems = new EvasionItemManager(this.antivirusAgent);
     GameStateManager.getInstance();
     window.addEventListener('resize', this.resizeHandler);
     window.addEventListener('gameOver', this.gameOverHandler);
@@ -150,6 +153,20 @@ export class SceneManager {
         },
         toggleColliders: (ignore) => {
           this.playerController.setNoClip(ignore);
+        },
+        skipStage: () => {
+          // Abre todas las puertas de etapa 1
+          for (const doorId of STAGE_PREREQ_DOORS[2] ?? []) {
+            this.worldBuilder.openDoor(doorId);
+          }
+          // Completa los objetivos de etapa 1; acceso-red-interna dispara levelComplete
+          // que activa el drone automáticamente via AntivirusAgent.onLevelComplete
+          const gsm = GameStateManager.getInstance();
+          gsm.completeObjective('dato-clientes');
+          gsm.completeObjective('dato-soporte');
+          gsm.completeObjective('acceso-red-interna');
+          // Teleport al inicio de etapa 2
+          this.playerController.teleportTo(STAGE_SPAWNS[2] ?? this.worldBuilder.getSpawnPoint());
         },
       });
     }
@@ -177,6 +194,7 @@ export class SceneManager {
     window.removeEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
     window.removeEventListener('levelComplete', this.levelCompleteHandler);
     if (this.devPanel) this.devPanel.dispose();
+    this.evasionItems.dispose();
     this.antivirusAgent.dispose();
     this.audioManager.dispose();
     this.playerController.dispose();

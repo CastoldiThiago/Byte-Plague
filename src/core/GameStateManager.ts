@@ -93,6 +93,7 @@ export class GameStateManager {
   public completeObjective(id: string): void {
     if (this._objectivesCompleted.includes(id)) return;
     this._objectivesCompleted.push(id);
+    window.dispatchEvent(new CustomEvent('objectiveUnlocked', { detail: { id } }));
 
     const levelObjectives = GameStateManager.LEVEL_OBJECTIVES[this._currentLevel] ?? [];
     const allDone =

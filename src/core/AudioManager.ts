@@ -45,6 +45,8 @@ export class AudioManager {
 
     window.addEventListener('commandSuccess', this.onCommandSuccess);
     window.addEventListener('commandFail', this.onCommandFail);
+    window.addEventListener('gamePaused', this.onGamePaused);
+    window.addEventListener('gameResumed', this.onGameResumed);
 
     // Browser blocks AudioContext until a user gesture — resume on first click.
     document.addEventListener('click', () => {
@@ -78,6 +80,8 @@ export class AudioManager {
   public dispose(): void {
     window.removeEventListener('commandSuccess', this.onCommandSuccess);
     window.removeEventListener('commandFail', this.onCommandFail);
+    window.removeEventListener('gamePaused', this.onGamePaused);
+    window.removeEventListener('gameResumed', this.onGameResumed);
     for (const sound of this.sounds.values()) {
       if (sound.isPlaying) sound.stop();
     }
@@ -85,11 +89,8 @@ export class AudioManager {
     this.audioListener.removeFromParent();
   }
 
-  private readonly onCommandSuccess = (): void => {
-    this.play('command_success');
-  };
-
-  private readonly onCommandFail = (): void => {
-    this.play('command_fail');
-  };
+  private readonly onCommandSuccess = (): void => { this.play('command_success'); };
+  private readonly onCommandFail    = (): void => { this.play('command_fail'); };
+  private readonly onGamePaused     = (): void => { void this.audioListener.context.suspend(); };
+  private readonly onGameResumed    = (): void => { void this.audioListener.context.resume(); };
 }

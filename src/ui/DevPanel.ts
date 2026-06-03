@@ -2,6 +2,7 @@ import { isDevMode } from '../core/DevMode';
 
 export type TeleportCallback = (x: number, y: number, z: number) => void;
 export type ToggleCollidersCallback = (ignore: boolean) => void;
+export type SkipStageCallback = () => void;
 
 export class DevPanel {
   private root: HTMLDivElement;
@@ -9,12 +10,14 @@ export class DevPanel {
   private collidersIgnored = false;
   private teleportCb: TeleportCallback;
   private toggleCollidersCb: ToggleCollidersCallback;
+  private skipStageCb: SkipStageCallback;
   private lastPos = { x: 0, y: 0, z: 0 };
 
-  constructor(opts: { teleport: TeleportCallback; toggleColliders: ToggleCollidersCallback }) {
+  constructor(opts: { teleport: TeleportCallback; toggleColliders: ToggleCollidersCallback; skipStage: SkipStageCallback }) {
     if (!isDevMode()) throw new Error('DevPanel only allowed in dev mode');
     this.teleportCb = opts.teleport;
     this.toggleCollidersCb = opts.toggleColliders;
+    this.skipStageCb = opts.skipStage;
 
     this.root = document.createElement('div');
     this.root.className = 'dev-panel-overlay';
@@ -30,6 +33,9 @@ export class DevPanel {
         <button id="dev-toggle-colliders">Toggle Collisions</button>
         <button id="dev-request-lock">Request PointerLock</button>
         <button id="dev-respawn">Respawn</button>
+      </div>
+      <div class="dev-panel-row">
+        <button id="dev-skip-stage1">⏩ Skip Etapa 1</button>
       </div>
       <div class="dev-pos-box">
         <span id="dev-pos-label">X 0.00  Y 0.00  Z 0.00</span>
@@ -96,6 +102,13 @@ export class DevPanel {
     if (target.id === 'dev-respawn') {
       // simple respawn to entrance
       this.teleportCb(0, 1.7, 6);
+      return;
+    }
+
+    if (target.id === 'dev-skip-stage1') {
+      this.skipStageCb();
+      target.textContent = '✓ Etapa 1 salteada';
+      (target as HTMLButtonElement).disabled = true;
       return;
     }
   };

@@ -24,7 +24,7 @@ El jugador spawnea en el túnel inferior. La PC del empleado (jperez) está en l
 2. `cat credenciales_vpn.txt` → obtiene usuario `netops` y contraseña → otorga `dato-soporte`
 3. `ssh netops@10.10.0.20` en `puerta-red-interna` → requiere `dato-clientes` + `dato-soporte` → **barrera desbloqueada**, acceso a la red interna
 
-**Terminales opcionales (lore):** pc-1 (`netstat`), pc-2 (`ps aux`), pc-3 (`ping`), pc-4 (`top`)
+**Terminales opcionales / ítems:** pc-1 (`netstat` → otorga `item-firewall-rule`), pc-2 (`ps aux`), pc-3 (`ping`), pc-4 (`top`); `archivo-procedimientos` (`cat procedimientos.md` → otorga `item-traffic-spoof`)
 
 ### Etapa 2 — Escalada de privilegios (IMPLEMENTADA)
 
@@ -35,8 +35,8 @@ El jugador opera en la red interna como `netops`. Al cruzar la barrera de red in
 **Camino crítico — Servidor compartido:**
 
 1. `cd /shares` en `puerta-shares` → **barrera desbloqueada**, acceso al servidor compartido
-2. `cat /shares/IT_backups/network_map.txt` → revela IPs internas (DC: 10.10.0.5) → otorga `network-map`
-3. `cat /shares/IT_backups/sync_backup.ps1` → requiere `network-map` → credenciales de `domain_admin` hardcodeadas → otorga `admin-password`
+2. `cat network_map.txt` → revela IPs internas (DC: 10.10.0.5) → otorga `network-map`
+3. `cat sync_backup.ps1` → requiere `network-map` → credenciales de `domain_admin` hardcodeadas → otorga `admin-password`
 4. `request_ticket svc_backup` en terminal Kerberoasting → ticket TGS capturado → otorga `kerberos-ticket`
 5. `crack_ticket svc_backup.ticket` en misma terminal → requiere `kerberos-ticket` → contraseña crackeada → otorga `cracked-password`
 
@@ -87,11 +87,15 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 - Sala hexagonal → controlador de dominio, administra usuarios y permisos
 - Sala grande derecha → `/critical/`, servidor con archivos objetivo
 
-**Ítems de evasión del antivirus (recolectables, pendiente de implementar):**
+**Ítems de evasión del antivirus (IMPLEMENTADOS — teclas 1/2/3):**
 
-- `traffic_spoof.exe` — pasillo central → envía el drone a la zona más lejana por 20 seg
-- `firewall_rule.sh` — servidor compartido → bloquea al drone de la zona actual por 15 seg
-- `stealth_mode.bin` — sala hexagonal → el cono del drone no detecta al jugador por 10 seg
+| Ítem | Dónde se encuentra | Efecto | Duración |
+|------|-------------------|--------|----------|
+| `traffic_spoof.exe` | `cat procedimientos.md` en sala Documents (Etapa 1) | Envía el drone por el pasillo hasta la zona más lejana | 20 s |
+| `firewall_rule.sh` | `netstat` en `pc-1` / sala Documents (Etapa 1) | Congela al drone en su posición; su cono vira a verde | 15 s |
+| `stealth_mode.bin` | `cat stealth_mode.bin` en `terminal-central` (pasillo central, Etapa 2) | El cono del drone no detecta al jugador | 10 s |
+
+Al encontrar un ítem aparece un toast de confirmación. Los ítems se activan con las teclas **1**, **2**, **3** siempre que no estén en cooldown. El estado se muestra en el panel de notas bajo **HERRAMIENTAS**.
 
 ---
 
@@ -107,10 +111,11 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 - Sistema de alerta con barra de progreso: sube **solo** por fallos de comandos narrativos (`[ERROR]` en el output). Comandos VFS genéricos no suben alerta. Al llegar a 100% → game over
 - Timer de cuenta regresiva: corre desde que carga el juego. Al llegar a 0 → game over
 - GameStateManager: estados `playing` / `paused` / `game-over`, progresión de nivel (`_currentLevel` se incrementa al completar objetivos del nivel)
-- AntivirusAgent: implementado (detección por zona, patrullaje por waypoints) pero **desconectado del flujo principal**. El drone decorativo GLB aparece visible cuando el jugador desbloquea `puerta-red-interna`. **Pendiente: reactivar AntivirusAgent con waypoints del pasillo central y cono de visión.**
-- AudioManager: sonido ambiental tecnológico, sonidos de acierto y error de comandos
+- AntivirusAgent: conectado al flujo principal. Aparece al desbloquear `puerta-red-interna`. Patrullaje **secuencial** por waypoints reales (coordenadas tomadas del DevPanel): loop completo pasillo central → sala shares → túnel → sala Documents (Etapa 2); añade sala crítica en Etapa 3. Durante el dwell en cada waypoint el cono gira 360° a `LOOK_ANGULAR_SPEED`. Métodos de evasión: `trafficSpoof()` (desvía por pasillo hasta Etapa 1 sin dwell), `stealthMode()` (cono ciego, gris), `firewallRule()` (congela movimiento 15 s, cono verde).
+- **EvasionItemManager** (`src/gameplay/EvasionItemManager.ts`): gestiona los 3 ítems de evasión. Escucha `objectiveUnlocked` para desbloquear slots; teclas 1/2/3 activan el efecto; muestra toast al encontrar un ítem y contador de cooldown en el slot.
+- AudioManager: sonido ambiental tecnológico, sonidos de acierto y error de comandos. Suspende/reanuda el AudioContext al recibir `gamePaused`/`gameResumed`.
 - Menú de pausa (ESC) sin romper el PointerLock flow — **ESC está ocupado: cualquier sistema nuevo que use ESC debe consultar el estado antes de actuar**
-- Modo dev: vuelo (Space sube / Shift baja), noClip, DevPanel con posición en tiempo real y copia al clipboard
+- Modo dev: vuelo (Space sube / Shift baja), noClip, DevPanel con posición en tiempo real + copia al clipboard + botón **"⏩ Skip Etapa 1"** (completa objetivos, abre puertas y teleporta al spawn de Etapa 2)
 
 ---
 
@@ -130,8 +135,8 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 ### Core (infraestructura)
 
 - `src/core/SceneManager.ts` — orquesta la escena, loop de animación (`animate()`), pausa, construye y conecta todos los subsistemas
-- `src/core/AudioManager.ts` — sonido ambiental y efectos de audio
-- `src/core/GameStateManager.ts` — fuente de verdad única: estados del juego, timer, nivel de alerta, objetivos completados, progresión de nivel. Al completar todos los objetivos de un nivel dispara `levelComplete` e incrementa `_currentLevel`.
+- `src/core/AudioManager.ts` — sonido ambiental y efectos de audio. Pausa/reanuda el AudioContext al recibir `gamePaused`/`gameResumed`.
+- `src/core/GameStateManager.ts` — fuente de verdad única: estados del juego, timer, nivel de alerta, objetivos completados, progresión de nivel. Al completar todos los objetivos de un nivel dispara `levelComplete` e incrementa `_currentLevel`. Al completar cualquier objetivo individual dispara `objectiveUnlocked { id }`.
 - `src/core/InteractionManager.ts` — escucha `poiFocus`/`poiBlur` y la tecla E; despacha `poiInteract` al sistema correcto
 - `src/core/AssetLoader.ts` — carga centralizada de assets
 - `src/core/VirtualFS.ts` — singleton. Filesystem Linux simulado: `cwd`, `user`, comandos genéricos, restricciones de `cd` (solo puertas) y `cat` (solo archivo propio del POI, acepta tanto basename como path completo). Se sincroniza con el POI activo vía `setContext(basePath, allowCd, restrictedFile)`
@@ -139,12 +144,13 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 ### Gameplay (lógica de juego)
 
 - `src/gameplay/player/PlayerController.ts` — movimiento WASD, PointerLock, raycasting hacia interactuables (distancia máx. 5 u + line-of-sight), colisión por raycasting (3 alturas), fly mode y noClip (dev)
-- `src/gameplay/AntivirusAgent.ts` — detección por zona y patrullaje por waypoints. Actualmente desconectado del flujo principal. **Pendiente: reconectar con waypoints del pasillo central.**
+- `src/gameplay/AntivirusAgent.ts` — patrullaje secuencial por waypoints reales, cono de visión proyectado en el suelo (y=0.5, renderOrder=1), giro durante dwell. Etapa 2: loop pasillo + shares + túnel + Documents. Etapa 3: añade sala crítica. Métodos públicos: `trafficSpoof()`, `stealthMode()`, `firewallRule()`.
+- `src/gameplay/EvasionItemManager.ts` — desbloquea ítems al recibir `objectiveUnlocked`; activa efectos en AntivirusAgent con teclas 1/2/3; gestiona cooldown, toast y slots en NotesPanel.
 - `src/gameplay/CommandEngine.ts` — orquestador de cuatro capas: (1) narrativo `correctCommand`, (1b) narrativo `secondCommand`, (2) VirtualFS genérico, (3) command not found
 
 ### World (construcción del mundo)
 
-- `src/world/WorldBuilder.ts` — carga escena GLTF, crea barreras, FilePOIs y TerminalPOIs. Escucha `doorUnlocked` internamente para activar el drone al desbloquear `puerta-red-interna`. Expone `build()`, `openDoor()`, `update()`, `dispose()`.
+- `src/world/WorldBuilder.ts` — carga escena GLTF, crea barreras, FilePOIs y TerminalPOIs (incluye `terminal-central` en el pasillo central). Escucha `doorUnlocked` internamente para activar el drone al desbloquear `puerta-red-interna`. Expone `build()`, `openDoor()`, `update()`, `dispose()`.
 - `src/world/HolographicBarrier.ts` — barrera holográfica animada; label configurable por instancia. Al abrirse se remueve de `interactables` y `collidables`. **`visible=false` no deshabilita raycasting en Three.js r184 — siempre remover del array.**
 - `src/world/FilePOI.ts` — archivo interactuable: carga `document_folder.glb` con texturas originales, hitbox invisible, dot pulsante + label al enfocar, event listeners `poiFocus`/`poiBlur`.
 - `src/world/TerminalPOI.ts` — terminal interactuable: carga GLB configurable (`model` key → URL), normaliza escala a `targetWidth`, usa pivot wrapper para que la rotación no desplace el modelo, hitbox y sprites se reposicionan al centro real del modelo tras la carga.
@@ -157,7 +163,8 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 - `src/ui/TerminalUI.ts` — terminal con input libre: historial ↑↓, Tab completion, Ctrl+L/C, prompt dinámico. Maneja `commandSuccess` y `doorUnlocked` tanto para `correctCommand` como para `secondCommand`. Cierra con backtick.
 - `src/ui/PauseMenu.ts` — overlay de pausa (ESC); tiene prioridad sobre otros listeners de ESC
 - `src/ui/NarrativeScreen.ts` — pantalla de narrativa/intro con efecto typewriter
-- `src/ui/DevPanel.ts` — panel dev: teleport a zonas, toggle de colisiones, posición en tiempo real + copia al clipboard
+- `src/ui/NotesPanel.ts` — panel lateral de objetivos y herramientas. Sección **HERRAMIENTAS** con slots (`#item-slots`) que EvasionItemManager rellena al desbloquear ítems.
+- `src/ui/DevPanel.ts` — panel dev: teleport a zonas, toggle de colisiones, posición en tiempo real + copia al clipboard, botón "⏩ Skip Etapa 1" (callback `skipStage`)
 
 ### Efectos y shaders
 
@@ -166,8 +173,8 @@ Al completar: el drone entra a la sala, 10 segundos para escapar por el camino r
 
 ### Datos y tipos
 
-- `src/data/scenarios.ts` — escenarios de Etapas 1 y 2: `correctCommand`, `secondCommand` (opcional, para terminales multi-paso), `basePath`, `targetPath`, `requiredObjectives`, `objectiveId`, `secondUnlocksDoor`
-- `src/data/filesystem.ts` — árbol estático del VFS: `/home/jperez/`, `/home/netops/`, `/home/svc_backup/`, `/shares/IT_backups/` (con `network_map.txt` y `sync_backup.ps1`), `/etc/`, `/var/`, `/proc/`
+- `src/data/scenarios.ts` — escenarios de Etapas 1 y 2: `correctCommand`, `secondCommand` (opcional, para terminales multi-paso), `basePath`, `targetPath`, `requiredObjectives`, `objectiveId`, `secondUnlocksDoor`. Incluye `terminal-central` (stealth_mode.bin). Los archivos del servidor compartido se leen con nombre corto (`cat network_map.txt`, `cat sync_backup.ps1`) porque `basePath` ya es `/shares/IT_backups`.
+- `src/data/filesystem.ts` — árbol estático del VFS: `/home/jperez/`, `/home/netops/` (incluye `stealth_mode.bin`), `/home/svc_backup/`, `/shares/IT_backups/` (con `network_map.txt` y `sync_backup.ps1`), `/etc/`, `/var/`, `/proc/`
 - `src/types/game.ts` — tipos compartidos. `Scenario` incluye campos `second*` para terminales multi-paso. `CommandResult` incluye `unlocksDoor` para que el motor de comandos indique qué barrera abrir.
 
 ---
@@ -186,9 +193,10 @@ CustomEvents nativos del DOM (`window.dispatchEvent` / `window.addEventListener`
 | `doorUnlocked`   | TerminalUI         | SceneManager (`openDoor()`), WorldBuilder (drone) |
 | `commandSuccess` | TerminalUI         | AudioManager                                   |
 | `commandFail`    | TerminalUI         | AudioManager, GameStateManager                 |
-| `gamePaused`     | PlayerController   | PauseMenu, SceneManager                        |
-| `gameResumed`    | PlayerController   | PauseMenu, SceneManager                        |
-| `levelSpawnReady`| WorldBuilder       | SceneManager (teleporta al spawn)              |
+| `gamePaused`        | PlayerController   | PauseMenu, SceneManager, AudioManager          |
+| `gameResumed`       | PlayerController   | PauseMenu, SceneManager, AudioManager          |
+| `objectiveUnlocked` | GameStateManager   | EvasionItemManager                             |
+| `levelSpawnReady`   | WorldBuilder       | SceneManager (teleporta al spawn)              |
 
 ---
 

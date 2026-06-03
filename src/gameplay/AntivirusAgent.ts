@@ -18,36 +18,80 @@ const CONE_STEP_SECS   = 60;   // seconds per angle step
 const ALERT_RATE  = 15;        // alert points per second while player is in cone
 
 const DWELL_MIN = 2;           // minimum dwell at each waypoint (seconds)
-const DWELL_MAX = 4;           // maximum dwell at each waypoint (seconds)
+const DWELL_MAX = 5;           // maximum dwell at each waypoint (seconds)
+const LOOK_ANGULAR_SPEED = Math.PI * 0.75; // rad/s — ~1 vuelta completa en 2.7 s durante dwell
 
-const SPOOF_DURATION   = 20;   // seconds traffic_spoof sends drone away
-const STEALTH_DURATION = 10;   // seconds stealth_mode disables detection
+const SPOOF_DURATION    = 20;   // seconds traffic_spoof sends drone away
+const STEALTH_DURATION  = 10;   // seconds stealth_mode disables detection
+const FIREWALL_DURATION = 15;   // seconds firewall_rule freezes drone movement
 
 // ── Patrol waypoints ─────────────────────────────────────────────────────
-// TODO: Replace placeholders with exact coordinates from the DevPanel.
+// Recorrido secuencial en loop. Coordenadas registradas con DevPanel (y≈2.18).
+// El drone gira su cono en cada punto durante el dwell antes de continuar.
 
-// Etapa 2 — pasillo central + sala /shares
+// Etapa 2 — pasillo central + sala /shares + túnel + sala Documents
 const WP_STAGE_2: readonly THREE.Vector3[] = [
-  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -12.00), // pasillo central — norte
-  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -25.49), // pasillo central — centro
-  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -38.00), // pasillo central — sur
-  new THREE.Vector3(-22.00, DRONE_BASE_Y,  -20.00), // sala /shares
+  new THREE.Vector3(  0.80, DRONE_BASE_Y,  -39.84), // [0]  sala central sur (entrada hexagonal)
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // [1]  sala central centro
+  new THREE.Vector3(-22.58, DRONE_BASE_Y,  -26.97), // [2]  interior shares
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // [3]  sala central centro (vuelta shares)
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // [4]  sala central mid
+  new THREE.Vector3(  1.09, DRONE_BASE_Y,  -15.45), // [5]  entrada túnel
+  new THREE.Vector3(  1.04, DRONE_BASE_Y,    4.05), // [6]  túnel curvo 1
+  new THREE.Vector3( -7.28, DRONE_BASE_Y,   12.19), // [7]  túnel curvo 2
+  new THREE.Vector3(-25.64, DRONE_BASE_Y,   12.12), // [8]  sala Documents (jperez)
+  new THREE.Vector3( -7.28, DRONE_BASE_Y,   12.19), // [9]  túnel curvo 2 (vuelta)
+  new THREE.Vector3(  1.04, DRONE_BASE_Y,    4.05), // [10] túnel curvo 1 (vuelta)
+  new THREE.Vector3(  1.09, DRONE_BASE_Y,  -15.45), // [11] entrada túnel (vuelta)
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // [12] sala central mid (vuelta)
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // [13] sala central centro → sur (cierra loop)
 ];
 
-// Etapa 3 — todo el mapa (incluye DC y sala crítica)
+// Etapa 3 — añade sala crítica entre [4] y [5] del recorrido de stage 2
 const WP_STAGE_3: readonly THREE.Vector3[] = [
-  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -12.00), // pasillo central — norte
-  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -25.49), // pasillo central — centro
-  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -38.00), // pasillo central — sur
-  new THREE.Vector3(-22.00, DRONE_BASE_Y,  -20.00), // sala /shares
-  new THREE.Vector3(  7.66, DRONE_BASE_Y,  -48.00), // sala controlador de dominio
-  new THREE.Vector3( 22.00, DRONE_BASE_Y,  -15.00), // sala crítica (/critical)
+  new THREE.Vector3(  0.80, DRONE_BASE_Y,  -39.84), // [0]  sala central sur
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // [1]  sala central centro
+  new THREE.Vector3(-22.58, DRONE_BASE_Y,  -26.97), // [2]  interior shares
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // [3]  sala central centro (vuelta shares)
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // [4]  sala central mid → sala crítica
+  new THREE.Vector3( 13.89, DRONE_BASE_Y,  -21.15), // [5]  pasillo sala crítica
+  new THREE.Vector3( 13.89, DRONE_BASE_Y,  -13.66), // [6]  pasillo doblar
+  new THREE.Vector3( 26.84, DRONE_BASE_Y,  -13.19), // [7]  interior sala crítica 1
+  new THREE.Vector3( 26.73, DRONE_BASE_Y,  -43.33), // [8]  interior sala crítica 2
+  new THREE.Vector3( 26.84, DRONE_BASE_Y,  -13.19), // [9]  interior sala crítica 1 (vuelta)
+  new THREE.Vector3( 13.89, DRONE_BASE_Y,  -13.66), // [10] pasillo doblar (vuelta)
+  new THREE.Vector3( 13.89, DRONE_BASE_Y,  -21.15), // [11] pasillo sala crítica (vuelta)
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // [12] sala central mid (vuelta crítica)
+  new THREE.Vector3(  1.09, DRONE_BASE_Y,  -15.45), // [13] entrada túnel
+  new THREE.Vector3(  1.04, DRONE_BASE_Y,    4.05), // [14] túnel curvo 1
+  new THREE.Vector3( -7.28, DRONE_BASE_Y,   12.19), // [15] túnel curvo 2
+  new THREE.Vector3(-25.64, DRONE_BASE_Y,   12.12), // [16] sala Documents
+  new THREE.Vector3( -7.28, DRONE_BASE_Y,   12.19), // [17] túnel curvo 2 (vuelta)
+  new THREE.Vector3(  1.04, DRONE_BASE_Y,    4.05), // [18] túnel curvo 1 (vuelta)
+  new THREE.Vector3(  1.09, DRONE_BASE_Y,  -15.45), // [19] entrada túnel (vuelta)
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // [20] sala central mid (vuelta)
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // [21] sala central centro → sur (cierra loop)
+  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -42.00), // [12] puerta DC
+  new THREE.Vector3(  7.66, DRONE_BASE_Y,  -47.00), // [13] sala DC (terminal)
+  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -42.00), // [14] salida DC → pasillo
+  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -27.00), // [15] bifurcación → sala crítica
+  new THREE.Vector3( 10.00, DRONE_BASE_Y,  -14.00), // [16] corredor a sala crítica
+  new THREE.Vector3( 22.00, DRONE_BASE_Y,  -14.00), // [17] entrada sala crítica
+  new THREE.Vector3( 30.00, DRONE_BASE_Y,  -14.00), // [18] interior sala crítica
+  new THREE.Vector3( 22.00, DRONE_BASE_Y,  -14.00), // [19] vuelta sala crítica
+  new THREE.Vector3( 10.00, DRONE_BASE_Y,  -14.00), // [20] corredor de salida
+  new THREE.Vector3(  0.97, DRONE_BASE_Y,  -14.00), // [21] pasillo norte (cierra loop)
 ];
 
-// Waypoints de distracción para trafficSpoof — zona Etapa 1 (la más lejana)
+// Waypoints de distracción para trafficSpoof — sigue los pasillos reales hasta Etapa 1
 const WP_DISTRACTION: readonly THREE.Vector3[] = [
-  new THREE.Vector3(-14.80, DRONE_BASE_Y,  19.81), // entrada / spawn
-  new THREE.Vector3(-30.00, DRONE_BASE_Y,  12.00), // interior oficina jperez
+  new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // sala central centro
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // sala central mid
+  new THREE.Vector3(  1.09, DRONE_BASE_Y,  -15.45), // entrada túnel
+  new THREE.Vector3(  1.04, DRONE_BASE_Y,    4.05), // túnel curvo 1
+  new THREE.Vector3( -7.28, DRONE_BASE_Y,   12.19), // túnel curvo 2
+  new THREE.Vector3(-25.64, DRONE_BASE_Y,   12.12), // sala Documents (jperez)
+  new THREE.Vector3(-14.80, DRONE_BASE_Y,   19.81), // spawn — zona más lejana
 ];
 
 // ── AntivirusAgent ─────────────────────────────────────────────────────────
@@ -67,8 +111,9 @@ export class AntivirusAgent {
   private readonly coneMaterial: THREE.MeshBasicMaterial;
   private currentConeAngle = CONE_ANGLE_START;
 
-  // Facing direction in XZ plane (normalized), used to orient the cone
+  // Facing direction en XZ — se deriva de facingAngle (ángulo desde +Z en radianes)
   private readonly facingDir = new THREE.Vector3(0, 0, -1);
+  private facingAngle = Math.PI; // empieza mirando -Z (hacia el norte del mapa)
 
   // Active stage (1 = inactive / invisible, 2 = stage 2 patrol, 3 = full map)
   private stage = 1;
@@ -87,12 +132,14 @@ export class AntivirusAgent {
   private isSpoofed = false;
   private spoofElapsed = 0;
   private spoofWpIndex = 0;
-  private spoofDwelling = false;
-  private spoofDwellElapsed = 0;
 
   // stealthMode state
   private stealthActive = false;
   private stealthElapsed = 0;
+
+  // firewallRule state
+  private firewallActive = false;
+  private firewallElapsed = 0;
 
   // Audio
   private humAudio: THREE.PositionalAudio | null = null;
@@ -122,7 +169,8 @@ export class AntivirusAgent {
       this.buildConeGeometry(CONE_ANGLE_START, CONE_RANGE),
       this.coneMaterial,
     );
-    this.coneMesh.position.y = 0.04;
+    this.coneMesh.position.y = 0.5;  // por encima del piso del mapa
+    this.coneMesh.renderOrder = 1;
     this.coneMesh.visible = false; // shown when stage 2 activates
     scene.add(this.coneMesh);
 
@@ -143,7 +191,17 @@ export class AntivirusAgent {
     this.isSpoofed = true;
     this.spoofElapsed = 0;
     this.spoofWpIndex = 0;
-    this.spoofDwelling = false;
+  }
+
+  /**
+   * Freezes drone movement for FIREWALL_DURATION seconds.
+   * The cone colour changes to green while the effect is active.
+   */
+  public firewallRule(): void {
+    if (this.stage < 2) return;
+    this.firewallActive = true;
+    this.firewallElapsed = 0;
+    this.coneMaterial.color.set(0x00ff88);
   }
 
   /**
@@ -172,19 +230,28 @@ export class AntivirusAgent {
       this.coneMesh.geometry = this.buildConeGeometry(this.currentConeAngle, CONE_RANGE);
     }
 
+    // ── Firewall timer ─────────────────────────────────────────────────
+    if (this.firewallActive) {
+      this.firewallElapsed += deltaTime;
+      if (this.firewallElapsed >= FIREWALL_DURATION) {
+        this.firewallActive = false;
+        if (!this.stealthActive) this.coneMaterial.color.set(0xff2222);
+      }
+    }
+
     // ── Stealth timer ──────────────────────────────────────────────────
     if (this.stealthActive) {
       this.stealthElapsed += deltaTime;
       if (this.stealthElapsed >= STEALTH_DURATION) {
         this.stealthActive = false;
-        this.coneMaterial.color.set(0xff2222);
+        this.coneMaterial.color.set(this.firewallActive ? 0x00ff88 : 0xff2222);
       }
     }
 
     // ── Movement ───────────────────────────────────────────────────────
     if (this.isSpoofed) {
       this.updateSpoof(deltaTime);
-    } else {
+    } else if (!this.firewallActive) {
       this.updatePatrol(deltaTime);
     }
 
@@ -245,7 +312,7 @@ export class AntivirusAgent {
 
   public activateStage2(): void {
     this.stage = 2;
-    this.waypointIndex = this.randomWaypoint(-1, WP_STAGE_2);
+    this.waypointIndex = 0;
     this.isDwelling = false;
 
     if (this.droneGroup !== null) {
@@ -268,25 +335,18 @@ export class AntivirusAgent {
     return this.stage >= 3 ? WP_STAGE_3 : WP_STAGE_2;
   }
 
-  private randomWaypoint(exclude: number, waypoints: readonly THREE.Vector3[]): number {
-    if (waypoints.length <= 1) return 0;
-    let idx = 0;
-    for (let i = 0; i < 10; i++) {
-      idx = Math.floor(Math.random() * waypoints.length);
-      if (idx !== exclude) break;
-    }
-    return idx;
-  }
-
   private updatePatrol(deltaTime: number): void {
     if (this.droneGroup === null) return;
     const waypoints = this.getActiveWaypoints();
 
     if (this.isDwelling) {
       this.dwellElapsed += deltaTime;
+      // Gira el cono mientras vigila el punto
+      this.facingAngle += LOOK_ANGULAR_SPEED * deltaTime;
+      this.facingDir.set(Math.sin(this.facingAngle), 0, Math.cos(this.facingAngle));
       if (this.dwellElapsed >= this.dwellDuration) {
         this.isDwelling = false;
-        this.waypointIndex = this.randomWaypoint(this.waypointIndex, waypoints);
+        this.waypointIndex = (this.waypointIndex + 1) % waypoints.length;
       }
       return;
     }
@@ -303,6 +363,8 @@ export class AntivirusAgent {
       this.isDwelling = true;
       this.dwellElapsed = 0;
       this.dwellDuration = DWELL_MIN + Math.random() * (DWELL_MAX - DWELL_MIN);
+      // Congela el ángulo de llegada como punto de partida de la rotación
+      this.facingAngle = Math.atan2(this.facingDir.x, this.facingDir.z);
       return;
     }
 
@@ -310,6 +372,7 @@ export class AntivirusAgent {
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);
+    this.facingAngle = Math.atan2(dx / dist, dz / dist);
   }
 
   private updateSpoof(deltaTime: number): void {
@@ -321,14 +384,8 @@ export class AntivirusAgent {
 
     if (this.droneGroup === null) return;
 
-    if (this.spoofDwelling) {
-      this.spoofDwellElapsed += deltaTime;
-      if (this.spoofDwellElapsed >= 2.0) {
-        this.spoofDwelling = false;
-        this.spoofWpIndex = (this.spoofWpIndex + 1) % WP_DISTRACTION.length;
-      }
-      return;
-    }
+    // Se queda en el último punto una vez llegado — no cicla de vuelta
+    if (this.spoofWpIndex >= WP_DISTRACTION.length) return;
 
     const target = WP_DISTRACTION[this.spoofWpIndex];
     if (target === undefined) return;
@@ -339,8 +396,8 @@ export class AntivirusAgent {
     const dist = Math.sqrt(dx * dx + dz * dz);
 
     if (dist < REACH_DIST) {
-      this.spoofDwelling = true;
-      this.spoofDwellElapsed = 0;
+      // Avanza al siguiente waypoint sin dwell — sigue el pasillo a máxima velocidad
+      this.spoofWpIndex = Math.min(this.spoofWpIndex + 1, WP_DISTRACTION.length);
       return;
     }
 
@@ -348,6 +405,7 @@ export class AntivirusAgent {
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);
+    this.facingAngle = Math.atan2(dx / dist, dz / dist);
   }
 
   // ── Detection ──────────────────────────────────────────────────────────

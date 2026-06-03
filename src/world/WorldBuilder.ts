@@ -72,6 +72,7 @@ export class WorldBuilder {
     const defs = [
       { poiId: 'pc-1',              label: 'terminal_red.sh',    x: -14.83, z:  10.77, rotY: Math.PI / 2 },
       // Etapa 2
+      { poiId: 'terminal-central',  label: 'Monitoreo de red',   x:   8.53, z: -27.10, rotY: 0 },
       { poiId: 'terminal-kerberos', label: 'Kerberoasting',      x: -30.81, z: -16.90, rotY: -Math.PI },
       { poiId: 'terminal-dc',       label: 'Domain Controller',  x:   7.66, z: -48.33, rotY: -Math.PI / 2 + 0.35, model: 'monitoring' as const, targetWidth: 3.60 },
     ];

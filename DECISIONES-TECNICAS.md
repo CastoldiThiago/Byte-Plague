@@ -115,11 +115,7 @@ _(sin entradas aún — ver CLAUDE.md para posiciones de POIs)_
 
 ## Pendientes / En evaluación
 
-- **Etapa 2 — VFS de red interna:** Cuando se implemente la Etapa 2, hay que agregar al árbol del VFS: `/home/netops/`, `/shares/IT_backups/` (con `network_map.txt` y `sync_backup.ps1`), y los comandos narrativos `net user /domain`, `request_ticket`, `crack_ticket`. El `setUser('netops', '/home/netops')` del VFS ya está disponible.
-
 - **Etapa 3 — VFS de archivos críticos:** Agregar `/critical/` con archivos `.db`, `.bak`, `.xlsx`. Los comandos `generate_key` y `encrypt` son narrativos puros (no tienen equivalente en VFS genérico).
-
-- **AntivirusAgent como drone 3D:** Actualmente desactivado (rollback 26-04-2026). Pendiente reactivar con waypoints aleatorios y cono de visión proyectado en el suelo. Ver `src/gameplay/AntivirusAgent.ts`.
 
 - **Vignette rojo en HUD:** Al superar 50% de alerta, agregar vignette rojo pulsante en los bordes de pantalla. Está mencionado en `HUDManager.ts` como pendiente.
 

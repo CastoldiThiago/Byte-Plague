@@ -14,6 +14,10 @@ export const FILESYSTEM: VFSNode = {
               hidden: true,
               content: '# .bashrc — netops\nexport PATH=$PATH:/usr/local/bin\n',
             },
+            'stealth_mode.bin': {
+              type: 'file',
+              content: 'ELF 64-bit LSB executable — AV Evasion Module v0.4\nRun with: ./stealth_mode.bin',
+            },
           },
         },
         svc_backup: {
