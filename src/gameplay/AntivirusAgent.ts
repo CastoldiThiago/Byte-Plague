@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import droneUrl from '../assets/models/drone.glb?url';
 import { GameStateManager } from '../core/GameStateManager';
+import { GameConfig } from '../core/GameConfig';
 
 // ── Drone parameters ───────────────────────────────────────────────────────
 
@@ -83,6 +84,15 @@ const WP_STAGE_3: readonly THREE.Vector3[] = [
   new THREE.Vector3(  0.97, DRONE_BASE_Y,  -14.00), // [21] pasillo norte (cierra loop)
 ];
 
+// Waypoints de rush al cuarto crítico — para la secuencia de escape de Etapa 3
+const WP_RUSH_CRITICAL: readonly THREE.Vector3[] = [
+  new THREE.Vector3(  1.11, DRONE_BASE_Y,  -21.40), // sala central mid
+  new THREE.Vector3( 13.89, DRONE_BASE_Y,  -21.15), // pasillo entrada crítica
+  new THREE.Vector3( 13.89, DRONE_BASE_Y,  -13.66), // pasillo doblar
+  new THREE.Vector3( 26.84, DRONE_BASE_Y,  -13.19), // interior sala crítica 1
+  new THREE.Vector3( 26.73, DRONE_BASE_Y,  -43.33), // interior sala crítica 2
+];
+
 // Waypoints de distracción para trafficSpoof — sigue los pasillos reales hasta Etapa 1
 const WP_DISTRACTION: readonly THREE.Vector3[] = [
   new THREE.Vector3(  0.72, DRONE_BASE_Y,  -27.30), // sala central centro
@@ -133,6 +143,14 @@ export class AntivirusAgent {
   private spoofElapsed = 0;
   private spoofWpIndex = 0;
 
+  // rush + chase state (Etapa 3)
+  private chaseModeActive = false; // true once enterChaseMode() is called — never resets
+  private isRushing = false;
+  private rushWpIndex = 0;
+  private isChasing = false;
+  private waitingForRush = false;
+  private hasCaught = false;
+
   // stealthMode state
   private stealthActive = false;
   private stealthElapsed = 0;
@@ -178,6 +196,7 @@ export class AntivirusAgent {
     void this.loadDrone();
 
     window.addEventListener('levelComplete', this.onLevelComplete);
+    window.addEventListener('chaseRushStart', this.onChaseRushStart);
   }
 
   // ── Public API ─────────────────────────────────────────────────────────
@@ -187,10 +206,25 @@ export class AntivirusAgent {
    * clearing the patrol zone around the player.
    */
   public trafficSpoof(): void {
-    if (this.stage < 2) return;
+    if (this.stage < 2 || this.isChasing) return;
     this.isSpoofed = true;
     this.spoofElapsed = 0;
-    this.spoofWpIndex = 0;
+    this.spoofWpIndex = this.findNearestDistractionWp();
+  }
+
+  private findNearestDistractionWp(): number {
+    if (this.droneGroup === null) return 0;
+    const dp = this.droneGroup.position;
+    let best = 0;
+    let bestSq = Infinity;
+    for (let i = 0; i < WP_DISTRACTION.length; i++) {
+      const wp = WP_DISTRACTION[i]!;
+      const dx = wp.x - dp.x;
+      const dz = wp.z - dp.z;
+      const sq = dx * dx + dz * dz;
+      if (sq < bestSq) { bestSq = sq; best = i; }
+    }
+    return best;
   }
 
   /**
@@ -198,7 +232,7 @@ export class AntivirusAgent {
    * The cone colour changes to green while the effect is active.
    */
   public firewallRule(): void {
-    if (this.stage < 2) return;
+    if (this.stage < 2 || this.isChasing) return;
     this.firewallActive = true;
     this.firewallElapsed = 0;
     this.coneMaterial.color.set(0x00ff88);
@@ -209,7 +243,7 @@ export class AntivirusAgent {
    * The cone colour changes to blue while the effect is active.
    */
   public stealthMode(): void {
-    if (this.stage < 2) return;
+    if (this.stage < 2 || this.isChasing) return;
     this.stealthActive = true;
     this.stealthElapsed = 0;
     this.coneMaterial.color.set(0x2266ff);
@@ -217,17 +251,20 @@ export class AntivirusAgent {
 
   public update(deltaTime: number): void {
     if (this.stage < 2 || this.droneGroup === null) return;
+    if (GameStateManager.getInstance().isPaused) return;
 
-    // ── Cone angle escalation ──────────────────────────────────────────
-    this.activeTime += deltaTime;
-    const targetAngle = Math.min(
-      CONE_ANGLE_START + Math.floor(this.activeTime / CONE_STEP_SECS) * CONE_ANGLE_STEP,
-      CONE_ANGLE_MAX,
-    );
-    if (targetAngle !== this.currentConeAngle) {
-      this.currentConeAngle = targetAngle;
-      this.coneMesh.geometry.dispose();
-      this.coneMesh.geometry = this.buildConeGeometry(this.currentConeAngle, CONE_RANGE);
+    // ── Cone angle escalation (solo fuera de chase) ────────────────────
+    if (!this.chaseModeActive) {
+      this.activeTime += deltaTime;
+      const targetAngle = Math.min(
+        CONE_ANGLE_START + Math.floor(this.activeTime / CONE_STEP_SECS) * CONE_ANGLE_STEP,
+        CONE_ANGLE_MAX,
+      );
+      if (targetAngle !== this.currentConeAngle) {
+        this.currentConeAngle = targetAngle;
+        this.coneMesh.geometry.dispose();
+        this.coneMesh.geometry = this.buildConeGeometry(this.currentConeAngle, CONE_RANGE);
+      }
     }
 
     // ── Firewall timer ─────────────────────────────────────────────────
@@ -249,7 +286,18 @@ export class AntivirusAgent {
     }
 
     // ── Movement ───────────────────────────────────────────────────────
-    if (this.isSpoofed) {
+    if (this.chaseModeActive) {
+      // Chase mode: only rush → chase, never fall back to patrol
+      if (this.hasCaught) {
+        // Do nothing — game should be stopping
+      } else if (this.waitingForRush) {
+        // Frozen at sala central, waiting for narrative
+      } else if (this.isRushing) {
+        this.updateRush(deltaTime);
+      } else {
+        this.updateChase(deltaTime);
+      }
+    } else if (this.isSpoofed) {
       this.updateSpoof(deltaTime);
     } else if (!this.firewallActive) {
       this.updatePatrol(deltaTime);
@@ -259,24 +307,21 @@ export class AntivirusAgent {
     this.droneTime += deltaTime;
     this.droneGroup.position.y = DRONE_BASE_Y + Math.sin(this.droneTime * 1.4) * 0.10;
 
-    // Orientar el modelo hacia donde se mueve. El modelo mira -Z por defecto;
-    // atan2(-x, -z) mapea facingDir a esa convención.
     this.droneGroup.rotation.y = Math.atan2(this.facingDir.x, this.facingDir.z);
 
     // ── Cone transform ─────────────────────────────────────────────────
-    // The sector geometry points in +Z by default; rotation.y aligns it with facingDir.
-    // Formula: R_y(atan2(fx, fz)) * (0,0,1) = (fx, 0, fz) ✓
     this.coneMesh.position.x = this.droneGroup.position.x;
     this.coneMesh.position.z = this.droneGroup.position.z;
     this.coneMesh.rotation.y = Math.atan2(this.facingDir.x, this.facingDir.z);
 
-    // ── Detection ──────────────────────────────────────────────────────
-    this.checkConeDetection(deltaTime);
+    // ── Detection (solo fuera de chase) ────────────────────────────────
+    if (!this.chaseModeActive) this.checkConeDetection(deltaTime);
   }
 
   public dispose(): void {
     this.disposed = true;
     window.removeEventListener('levelComplete', this.onLevelComplete);
+    window.removeEventListener('chaseRushStart', this.onChaseRushStart);
 
     this.coneMesh.geometry.dispose();
     this.coneMaterial.dispose();
@@ -308,6 +353,7 @@ export class AntivirusAgent {
     const { level } = (e as CustomEvent<{ level: number }>).detail;
     if (level === 1) this.activateStage2();
     else if (level === 2) this.activateStage3();
+    else if (level === 3) this.enterChaseMode();
   };
 
   public activateStage2(): void {
@@ -328,6 +374,48 @@ export class AntivirusAgent {
     this.stage = 3;
     // Continue current patrol; getActiveWaypoints() now returns WP_STAGE_3
   }
+
+  /** Etapa 3 complete: snap drone to sala central and wait for narrative to end before rushing. */
+  public enterChaseMode(): void {
+    if (this.stage < 2) return;
+    GameStateManager.getInstance().startChase();
+    this.chaseModeActive = true;
+    this.hasCaught = false;
+
+    // Snap drone to sala central — player won't see the jump (it's behind them / narrative overlay)
+    if (this.droneGroup !== null) {
+      this.droneGroup.position.set(1.11, DRONE_BASE_Y, -21.40);
+    }
+
+    this.isDwelling = false;
+    this.isSpoofed = false;
+    this.firewallActive = false;
+    this.stealthActive = false;
+    this.waitingForRush = true; // hold until narrative fires chaseRushStart
+    this.rushWpIndex = 0;
+
+    // 360° detection cone
+    this.currentConeAngle = 360;
+    this.coneMesh.geometry.dispose();
+    this.coneMesh.geometry = this.buildConeGeometry(360, CONE_RANGE * 1.5);
+    this.coneMaterial.color.set(0xff0000);
+    this.coneMaterial.opacity = 0.40;
+
+    // Fallback for devMode (no narrative screen): start rush after delay.
+    // 6s to avoid racing with any in-progress UI transitions.
+    window.setTimeout(() => {
+      if (this.waitingForRush) {
+        this.waitingForRush = false;
+        this.isRushing = true;
+      }
+    }, 6000);
+  }
+
+  private readonly onChaseRushStart = (): void => {
+    if (!this.waitingForRush) return;
+    this.waitingForRush = false;
+    this.isRushing = true;
+  };
 
   // ── Patrol helpers ─────────────────────────────────────────────────────
 
@@ -369,6 +457,64 @@ export class AntivirusAgent {
     }
 
     const step = Math.min(MOVE_SPEED * deltaTime, dist);
+    dp.x += (dx / dist) * step;
+    dp.z += (dz / dist) * step;
+    this.facingDir.set(dx / dist, 0, dz / dist);
+    this.facingAngle = Math.atan2(dx / dist, dz / dist);
+  }
+
+  // Index of the first waypoint INSIDE the critical room
+  private static readonly RUSH_CHASE_TRIGGER = 3; // WP_RUSH_CRITICAL[3] = interior sala crítica 1
+
+  private updateRush(deltaTime: number): void {
+    if (this.droneGroup === null) return;
+    if (this.rushWpIndex >= AntivirusAgent.RUSH_CHASE_TRIGGER) {
+      // Drone entered the room — start chasing player directly
+      this.isRushing = false;
+      this.isChasing = true;
+      return;
+    }
+
+    const target = WP_RUSH_CRITICAL[this.rushWpIndex];
+    if (target === undefined) return;
+
+    const dp = this.droneGroup.position;
+    const dx = target.x - dp.x;
+    const dz = target.z - dp.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < REACH_DIST) {
+      this.rushWpIndex++;
+      return;
+    }
+
+    const step = Math.min(MOVE_SPEED * 1.35 * GameConfig.antivirusSpeedMultiplier * deltaTime, dist);
+    dp.x += (dx / dist) * step;
+    dp.z += (dz / dist) * step;
+    this.facingDir.set(dx / dist, 0, dz / dist);
+    this.facingAngle = Math.atan2(dx / dist, dz / dist);
+  }
+
+  private readonly CATCH_DISTANCE = 2.2;
+
+  private updateChase(deltaTime: number): void {
+    if (this.droneGroup === null) return;
+
+    const dp = this.droneGroup.position;
+    const cp = this.camera.position;
+    const dx = cp.x - dp.x;
+    const dz = cp.z - dp.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < this.CATCH_DISTANCE) {
+      if (!this.hasCaught) {
+        this.hasCaught = true;
+        window.dispatchEvent(new CustomEvent('playerCaught'));
+      }
+      return;
+    }
+
+    const step = Math.min(MOVE_SPEED * 1.65 * GameConfig.antivirusSpeedMultiplier * deltaTime, dist);
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);

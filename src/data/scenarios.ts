@@ -278,8 +278,8 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
       '  db-segment:  10.10.0.28/30\n' +
       '    DB01:      10.10.0.30\n\n' +
       'PRIORIDAD: DC01 en 10.10.0.5 controla todo el dominio.',
-    conclusion: 'IPs internas mapeadas. El DC está en 10.10.0.5. Buscá credenciales para acceder.',
-    failOutput: '[ERROR] Ruta incorrecta. Usá la ruta completa del archivo.',
+    conclusion: 'Red mapeada: DC en 10.10.0.5. Revisá los scripts en IT_backups — suelen tener credenciales hardcodeadas.',
+    failOutput: '[ERROR] Archivo no encontrado. Usá: cat network_map.txt',
     objectiveId: 'network-map',
     basePath: '/shares/IT_backups',
   },
@@ -296,6 +296,7 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     successOutput:
       '[OK] /shares/IT_backups/sync_backup.ps1\n\n' +
       '# sync_backup.ps1 — IT Ops\n' +
+      '# Autor: svc_backup@corp.internal\n' +
       '# TODO: migrar credenciales a vault antes del Q3-2026\n\n' +
       '$domain = "corp.internal"\n' +
       '$user   = "domain_admin"\n' +
@@ -304,8 +305,10 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
       'Copy-Item "\\\\srv-dc01\\sysvol" "D:\\backups\\sysvol_$(Get-Date -f yyyyMMdd)"\n\n' +
       '[CREDENCIALES ENCONTRADAS]\n' +
       '  usuario:    domain_admin\n' +
-      '  contraseña: D0m@1nAdm1n_2026!',
-    conclusion: 'Credenciales de domain_admin en texto plano. domain_admin : D0m@1nAdm1n_2026!',
+      '  contraseña: D0m@1nAdm1n_2026!\n\n' +
+      '[NOTA] Script ejecutado por la cuenta de servicio: svc_backup\n' +
+      '  Tiene un SPN registrado (backup/srv-dc01) — puede ser objetivo de Kerberoasting.',
+    conclusion: 'Credenciales de domain_admin obtenidas. Además, svc_backup tiene SPN — buscá la terminal de Kerberoasting para atacar esa cuenta.',
     failOutput: '[ERROR] Acceso denegado. Necesitás el mapa de red primero.',
     objectiveId: 'admin-password',
     requiredObjectives: ['network-map'],
@@ -315,16 +318,23 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
   /* ── Terminal de Kerberoasting ───────────────────────────────────── */
   'terminal-kerberos': {
     label: 'Terminal: Kerberoasting',
-    prompt: 'Solicitá un ticket Kerberos para escalar privilegios.',
+    prompt: 'La cuenta que ejecuta el script de backup tiene un SPN registrado — es Kerberoasteable. Capturá su ticket y crackealo.',
     choices: [
       { command: 'request_ticket svc_backup', description: 'solicita ticket TGS para svc_backup' },
     ],
     correctCommand: 'request_ticket svc_backup',
-    hint: 'Solicitá un ticket de servicio con: request_ticket svc_backup',
+    hint: 'Encontraste la cuenta en el script de backup. Paso 1: request_ticket [cuenta_servicio]',
     helpText:
-      'Uso: request_ticket [cuenta]\n' +
-      'Solicita un Service Ticket (TGS) de Kerberos para la cuenta.\n' +
-      'El hash del ticket puede crackearse offline para obtener la contraseña.',
+      'Esta terminal usa herramientas propias del entorno (no son comandos\n' +
+      'estándar de Linux — están instaladas por el equipo de IT).\n\n' +
+      'PASO 1 — Capturar ticket de Kerberos:\n' +
+      '  request_ticket [cuenta_servicio]\n' +
+      '  Solicita un Service Ticket (TGS) al KDC para la cuenta indicada.\n' +
+      '  El nombre de la cuenta lo leíste en el script de backup de /IT_backups.\n\n' +
+      'PASO 2 — Crackear el ticket capturado:\n' +
+      '  crack_ticket [archivo.ticket]\n' +
+      '  Ataca el hash del ticket con un diccionario para extraer la contraseña.\n' +
+      '  El archivo .ticket se genera automáticamente en el paso 1.',
     successOutput:
       '[OK] Solicitando ticket TGS para svc_backup...\n\n' +
       '[*] Enumerando cuentas Kerberoasteables en corp.internal\n' +
@@ -359,25 +369,26 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
   /* ── Barrera: controlador de dominio ─────────────────────────────── */
   'puerta-dc': {
     label: 'Puerta: Controlador de dominio',
-    prompt: 'Autenticate como svc_backup para acceder al DC.',
+    prompt: 'svc_backup es una service account del grupo Backup Operators — tiene acceso directo al DC. Impersonala con la contraseña crackeada.',
     choices: [
-      { command: 'su svc_backup', description: 'cambia a la cuenta de servicio de backup' },
+      { command: 'su svc_backup', description: 'impersona la service account con la contraseña crackeada' },
     ],
     correctCommand: 'su svc_backup',
-    hint: 'Autenticate con las credenciales crackeadas: su svc_backup',
+    hint: 'Impersoná la service account con la contraseña crackeada: su svc_backup',
     helpText:
       'Uso: su [usuario]\n' +
-      'Cambia la identidad al usuario especificado.\n\n' +
-      'Necesitás el ticket Kerberos crackeado para autenticarte.',
+      'Cambia la identidad al usuario especificado usando su contraseña.\n\n' +
+      'svc_backup es del grupo Backup Operators, que tiene acceso\n' +
+      'privilegiado al DC por diseño. domain_admin no tiene acceso\n' +
+      'remoto desde esta sesión — necesitás la service account.',
     successOutput:
-      '[OK] Autenticado como svc_backup\n\n' +
-      'Sesion iniciada: svc_backup@corp.internal\n' +
+      '[OK] Identidad cambiada: svc_backup@corp.internal\n\n' +
       'Tipo de cuenta: service account (Backup Operators)\n' +
       'Acceso al controlador de dominio: HABILITADO\n\n' +
-      'Nivel de privilegio insuficiente para archivos críticos.\n' +
-      'Necesitás escalar a domain_admin desde el DC.',
-    conclusion: 'Sesión como svc_backup activa. Accedé al DC para escalar a domain_admin.',
-    failOutput: '[ERROR] Autenticación fallida. Necesitás crackear el ticket de svc_backup primero.',
+      'Privilegios actuales insuficientes para /critical.\n' +
+      'Necesitás escalar al grupo Domain Admins — domain_admin es miembro.',
+    conclusion: 'Dentro del DC como svc_backup. Enumerá el grupo Domain Admins y escalá.',
+    failOutput: '[ERROR] Autenticacion fallida. Necesitás crackear las credenciales de svc_backup primero.',
     objectiveId: 'acceso-dc',
     requiredObjectives: ['kerberos-ticket', 'cracked-password'],
     basePath: '/shares',
@@ -386,16 +397,20 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
   /* ── Terminal central del DC ─────────────────────────────────────── */
   'terminal-dc': {
     label: 'Terminal: Controlador de dominio',
-    prompt: 'Enumerá los grupos administrativos del dominio.',
+    prompt: 'Estás dentro del DC como svc_backup. Enumerá los administradores y luego escalá con las credenciales del script.',
     choices: [
       { command: 'net group "Domain Admins" /domain', description: 'lista miembros del grupo Domain Admins' },
     ],
     correctCommand: 'net group "Domain Admins" /domain',
-    hint: 'Listá los administradores de dominio: net group "Domain Admins" /domain',
+    hint: 'Enumerá los admins del dominio primero, luego escalá con las credenciales que encontraste.',
     helpText:
-      'Uso: net group [grupo] /domain\n' +
-      'Lista los miembros de un grupo de Active Directory.\n\n' +
-      'Usá comillas si el nombre contiene espacios.',
+      'PASO 1 — Enumerar administradores:\n' +
+      '  net group "Domain Admins" /domain\n' +
+      '  Lista los miembros del grupo de administradores en Active Directory.\n' +
+      '  Usá comillas porque el nombre del grupo tiene espacios.\n\n' +
+      'PASO 2 — Escalar privilegios:\n' +
+      '  su domain_admin\n' +
+      '  Usá la contraseña que encontraste hardcodeada en el script de backup.',
     successOutput:
       '[OK] Grupo: Domain Admins\n' +
       'Comentario: Designated administrators of the domain\n\n' +
@@ -420,6 +435,43 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
     secondConclusion: 'Sos domain_admin. El acceso a los archivos críticos está abierto.',
     secondObjectiveId: 'domain-admin-access',
     secondUnlocksDoor: 'puerta-critica',
+  },
+
+  /* ════════════════════════════════════════════════════════════════════
+     ETAPA 3 — Cifrado de archivos críticos
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ── Terminal: iniciar cifrado ransomware ────────────────────────── */
+  'terminal-critical': {
+    label: 'Terminal: /critical',
+    prompt: 'Tenés acceso completo a /critical como domain_admin. Los archivos están sin cifrar. Iniciá el ataque.',
+    choices: [
+      { command: 'encrypt', description: 'inicia el módulo de cifrado ransomware' },
+    ],
+    correctCommand: 'encrypt',
+    hint: 'Ejecutá el módulo de cifrado',
+    helpText:
+      'Sos domain_admin. Los archivos de /critical son el objetivo.\n\n' +
+      'Comandos disponibles:\n' +
+      '  ls          — lista el contenido del directorio\n' +
+      '  cat [file]  — lee un archivo\n' +
+      '  encrypt     — inicia el módulo de cifrado ransomware\n\n' +
+      'Una vez cifrado iniciado, el antivirus detecta la amenaza\n' +
+      'y viene directo a esta sala. Usá E en los archivos\n' +
+      'físicos de la sala para cifrarlos uno a uno.',
+    successOutput:
+      '[OK] Iniciando BYTE-PLAGUE Encryption Module...\n\n' +
+      '[*] Generando clave RSA-2048...\n' +
+      '[*] Escaneando /critical...\n' +
+      '[+] 8 archivos objetivo encontrados\n' +
+      '[+] Módulo activo — presioná E sobre cada archivo\n\n' +
+      '[!] ALERTA: el antivirus detectó actividad.\n' +
+      '[!] Viene en camino. Cifrá todo lo que puedas.',
+    conclusion: 'Módulo de cifrado activo. Cifrá los archivos antes de ser atrapado.',
+    failOutput: '[ERROR] Permiso denegado. Necesitás privilegios de domain_admin.',
+    objectiveId: 'encryption-key',
+    requiredObjectives: ['domain-admin-access'],
+    basePath: '/critical',
   },
 
   /* ── Terminal pasillo central (stealth_mode.bin) ────────────────── */

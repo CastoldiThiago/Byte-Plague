@@ -179,6 +179,70 @@ export const FILESYSTEM: VFSNode = {
         },
       },
     },
+    critical: {
+      type: 'dir',
+      children: {
+        'database.db': {
+          type: 'file',
+          content:
+            'SQLite database — corp.internal\n' +
+            'Tablas: clientes (14.820 registros), contratos (3.401), auditoria (209.774)\n' +
+            'Ultimo acceso: 2026-04-24  Propietario: domain_admin\n' +
+            'Estado: NO CIFRADO',
+        },
+        'backup_2026.bak': {
+          type: 'file',
+          content:
+            'SQL Server Backup — incremental 2026-04-24\n' +
+            'Base origen: CORP_PROD\n' +
+            'Tablas incluidas: ventas, inventario, RRHH\n' +
+            'Tamaño: 4.7 GB  Estado: NO CIFRADO',
+        },
+        'employees.xlsx': {
+          type: 'file',
+          content:
+            'Excel Workbook — RRHH Confidencial\n' +
+            'Columnas: nombre, CUIL, salario, cuenta_bancaria, legajo\n' +
+            'Filas: 847  Ultima modificacion: 2026-04-22\n' +
+            'Estado: NO CIFRADO',
+        },
+        'contracts.db': {
+          type: 'file',
+          content:
+            'Base de contratos legales — corp.internal\n' +
+            'Registros: 3.401 contratos activos\n' +
+            'Clasificacion: CONFIDENCIAL  Estado: NO CIFRADO',
+        },
+        'budget_Q1.xlsx': {
+          type: 'file',
+          content:
+            'Presupuesto Q1 2026 — Finanzas\n' +
+            'Sheets: P&L, CAPEX, Proyecciones, Nomina ejecutiva\n' +
+            'Clasificacion: RESTRINGIDO  Estado: NO CIFRADO',
+        },
+        'server_config.bak': {
+          type: 'file',
+          content:
+            'Backup configuracion de servidores — IT Ops\n' +
+            'Incluye: firewall rules, VPN keys, AD config\n' +
+            'Ultima modificacion: 2026-04-20  Estado: NO CIFRADO',
+        },
+        'audit_2026.db': {
+          type: 'file',
+          content:
+            'Base de auditoria corporativa 2026\n' +
+            'Registros: 209.774 eventos de acceso\n' +
+            'Requerido por compliance SOC2  Estado: NO CIFRADO',
+        },
+        'payroll_Q1.xlsx': {
+          type: 'file',
+          content:
+            'Nomina de sueldos Q1 2026\n' +
+            'Columnas: legajo, CUIL, banco, CBU, importe_bruto\n' +
+            'Empleados: 847  Clasificacion: CONFIDENCIAL  Estado: NO CIFRADO',
+        },
+      },
+    },
     shares: {
       type: 'dir',
       children: {

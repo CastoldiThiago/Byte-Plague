@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import folderUrl from '../assets/models/document_folder.glb?url';
 import { createDotSprite, createFocusedLabel, disposeSprite } from './LabelSprite';
+import type { GlitchMaterial } from '../shaders/GlitchMaterial';
 
 export interface FilePOIConfig {
   poiId: string;
@@ -26,6 +27,8 @@ export class FilePOI {
   private folderRoot: THREE.Group | null = null;
   private dotTime = 0;
   private focused = false;
+  private pendingGlitch: GlitchMaterial | null = null;
+  private encrypted = false;
 
   private readonly onFocus = (e: Event): void => {
     const id = (e as CustomEvent<FocusDetail>).detail?.poiId;
@@ -122,6 +125,9 @@ export class FilePOI {
       this.scene.add(root);
       this.folderRoot = root;
 
+      // Apply glitch retroactively if encrypt() was called before model loaded
+      if (this.pendingGlitch !== null) this.applyGlitchToFolder(this.pendingGlitch);
+
       // Move sprites above the actual model top
       const worldTop = FOLDER_BASE_Y + modelHeight;
       this.dotSprite.position.y   = worldTop + 0.22;
@@ -130,6 +136,33 @@ export class FilePOI {
     } catch (err) {
       console.warn('document_folder.glb no se pudo cargar:', err);
     }
+  }
+
+  public get hitboxMesh(): THREE.Mesh { return this.hitbox; }
+
+  /** Applies GlitchMaterial to this file, marking it as encrypted. */
+  public encrypt(mat: GlitchMaterial): void {
+    if (this.encrypted) return;
+    this.encrypted = true;
+    this.pendingGlitch = mat;
+
+    // Redden the pedestal immediately
+    const pedMat = this.pedestal.material as THREE.MeshStandardMaterial;
+    pedMat.color.set(0x1a0000);
+    pedMat.emissive.set(0xff2222);
+    pedMat.emissiveIntensity = 0.8;
+
+    // Change dot to red
+    (this.dotSprite.material as THREE.SpriteMaterial).color.set(0xff2222);
+
+    if (this.folderRoot !== null) this.applyGlitchToFolder(mat);
+  }
+
+  private applyGlitchToFolder(mat: GlitchMaterial): void {
+    this.folderRoot?.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.material = mat;
+    });
   }
 
   public update(deltaTime: number): void {

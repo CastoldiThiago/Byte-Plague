@@ -88,7 +88,7 @@ export class TerminalUI {
 
     const closeHint = document.createElement('span');
     closeHint.id = 'terminal-esc-hint';
-    closeHint.textContent = '[`] cerrar';
+    closeHint.textContent = '[°] cerrar';
 
     header.appendChild(title);
     header.appendChild(closeHint);

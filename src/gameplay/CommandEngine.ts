@@ -11,25 +11,42 @@ export class CommandEngine {
     return SCENARIOS[poiId] ?? null;
   }
 
+  /**
+   * Normalizes a shell command so that short-flag order doesn't matter.
+   * e.g. "netstat -an" === "netstat -na" after normalization.
+   * Non-flag args (no leading dash) and long-form args are left in place.
+   */
+  private static normalize(cmd: string): string {
+    const parts = cmd.trim().split(/\s+/);
+    const name  = parts[0] ?? '';
+    const normalized = parts.slice(1).map(token => {
+      // Short flags like -an, -na → sort letters, e.g. -an → -an, -na → -an
+      if (/^-[a-zA-Z]{2,}$/.test(token)) {
+        return '-' + [...token.slice(1)].sort().join('');
+      }
+      return token;
+    });
+    return [name, ...normalized].join(' ');
+  }
+
   public process(
     command: string,
     poiId: string,
     unlockedObjectives: readonly string[] = [],
   ): CommandResult {
     const raw = command.trim();
+    const norm = CommandEngine.normalize(raw);
 
     // ── 1. Narrative: exact match against the POI's correct command ──────
     const scenario = SCENARIOS[poiId];
-    if (scenario !== undefined && raw === scenario.correctCommand) {
+    if (scenario !== undefined && norm === CommandEngine.normalize(scenario.correctCommand)) {
       const requirements = scenario.requiredObjectives ?? [];
       const hasAll = requirements.every(r => unlockedObjectives.includes(r));
 
       if (!hasAll) {
         return {
           success: false,
-          feedback:
-            '[ERROR] Aun no tienes la informacion necesaria para este salto.\n\n' +
-            'Explora primero clientes y soporte-it para obtener ruta y credenciales.',
+          feedback: scenario.failOutput,
         };
       }
 
@@ -45,7 +62,7 @@ export class CommandEngine {
     if (
       scenario !== undefined &&
       scenario.secondCommand !== undefined &&
-      raw === scenario.secondCommand
+      norm === CommandEngine.normalize(scenario.secondCommand)
     ) {
       const requirements = scenario.secondRequiredObjectives ?? [];
       const hasAll = requirements.every(r => unlockedObjectives.includes(r));

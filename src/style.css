@@ -366,7 +366,7 @@ body,
   position: absolute;
   top: 8rem;
   right: 1.6rem;
-  width: 230px;
+  width: 260px;
   display: flex;
   flex-direction: column;
   background: rgba(6, 10, 16, 0.88);
@@ -407,19 +407,44 @@ body,
 }
 
 #notes-objectives {
-  padding: 0.55rem 0.75rem 0.6rem;
+  padding: 0.4rem 0.75rem 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.3rem;
+}
+
+.notes-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.notes-stage + .notes-stage {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(74, 246, 38, 0.12);
+}
+
+.notes-stage-title {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+.notes-stage--active .notes-stage-title {
+  color: #9bff4f;
+}
+
+.notes-stage--done .notes-stage-title {
+  color: rgba(155, 255, 79, 0.35);
 }
 
 .notes-obj {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 0.5rem;
   font-size: 0.74rem;
   color: rgba(200, 220, 200, 0.4);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .notes-obj--done {
@@ -431,10 +456,27 @@ body,
   min-width: 0.8rem;
   color: rgba(74, 246, 38, 0.4);
   flex-shrink: 0;
+  margin-top: 0.05rem;
 }
 
 .notes-obj--done .notes-obj-mark {
   color: #9bff4f;
+}
+
+.notes-obj-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.notes-obj-label {
+  line-height: 1.4;
+}
+
+.notes-obj-location {
+  font-size: 0.64rem;
+  color: rgba(74, 246, 38, 0.45);
+  letter-spacing: 0.02em;
 }
 
 #notes-items-header {

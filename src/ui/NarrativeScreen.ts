@@ -1,5 +1,6 @@
 import { GameStateManager } from '../core/GameStateManager';
 import { SaveManager } from '../core/SaveManager';
+import { GameConfig } from '../core/GameConfig';
 
 const CHAR_DELAY_MS = 40;
 const LINE_PAUSE_MS = 900;
@@ -25,14 +26,18 @@ const NARRATIVE_LEVEL: Readonly<Record<number, readonly string[]>> = {
     'El acceso a los archivos críticos está abierto.',
     'Etapa final: cifrá todo antes de que te encuentren.',
   ],
+  3: [
+    'CLAVE RSA-2048 GENERADA.',
+    'El antivirus detectó la actividad.',
+    'Viene directo a esta sala.',
+    'Cifrá la mayor cantidad de archivos posible.',
+  ],
 };
 
 const NARRATIVE_LOSE: readonly string[] = [
   'El antivirus te encontró.',
   'Intrusión contenida. Conexion terminada.',
 ];
-
-const PRIMARY_OBJECTIVE = 'acceso-red-interna';
 
 export class NarrativeScreen {
   private readonly overlay: HTMLElement;
@@ -50,6 +55,9 @@ export class NarrativeScreen {
 
     window.addEventListener('levelComplete', this.onLevelComplete);
     window.addEventListener('gameOver', this.onGameOver);
+    window.addEventListener('gameWon', this.onGameWon);
+    window.addEventListener('gameCaptured', this.onGameCaptured);
+    window.addEventListener('allFilesEncrypted', this.onAllFilesEncrypted);
     window.addEventListener('keydown', this.onKeyDown);
 
     const save = SaveManager.load();
@@ -110,36 +118,127 @@ export class NarrativeScreen {
     this.clearTimeouts();
     window.removeEventListener('levelComplete', this.onLevelComplete);
     window.removeEventListener('gameOver', this.onGameOver);
+    window.removeEventListener('gameWon', this.onGameWon);
+    window.removeEventListener('gameCaptured', this.onGameCaptured);
+    window.removeEventListener('allFilesEncrypted', this.onAllFilesEncrypted);
     window.removeEventListener('keydown', this.onKeyDown);
     this.overlay.remove();
   }
 
-  private buildWinLines(): string[] {
-    const gs = GameStateManager.getInstance();
-    const timeUsed = 180 - gs.timerSeconds;
-    const min = Math.floor(timeUsed / 60).toString().padStart(2, '0');
-    const sec = (timeUsed % 60).toString().padStart(2, '0');
-    const mistakes = Math.round(gs.alertLevel / 20);
-    const route = gs.objectivesCompleted.includes(PRIMARY_OBJECTIVE)
-      ? 'Gateway 10.10.0.20 comprometido'
-      : 'Ruta incompleta';
+  public showVictoryScreen(count: number, total: number): void {
+    this.clearTimeouts();
+    this.isActive = true;
+    this.prepareOverlay();
+
+    const damage = count * 1_500_000;
+    const dmgStr = damage.toLocaleString('es-AR', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const row = (label: string, value: string): string =>
+      `  ${label.padEnd(26)}${value}`;
+
+    const lines: string[] = [
+      'MISIÓN COMPLETADA',
+      `Cifraste los ${total} archivos críticos antes de ser atrapado.`,
+      'La empresa no puede recuperar sus datos.',
+      '',
+      '--- REPORTE BYTE-PLAGUE ---',
+      row('archivos cifrados',   `${count}/${total}`),
+      row('daño estimado',       dmgStr),
+      row('calificacion',        'S — Operación perfecta'),
+      '',
+      '  BYTE-PLAGUE v0.1',
+    ];
+
+    this.typeLines(lines, 0, () => {
+      this.skipCallBack = null;
+      const id = window.setTimeout(() => {
+        // Solo botón Inicio
+        const btn = document.createElement('button');
+        btn.id = 'narrative-retry-btn';
+        btn.textContent = '[ Inicio ]';
+        btn.addEventListener('click', () => {
+          SaveManager.clear();
+          window.location.reload();
+        }, { once: true });
+        this.textContainer.appendChild(btn);
+        requestAnimationFrame(() => { btn.style.opacity = '1'; });
+      }, 800);
+      this.timeoutIds.push(id);
+    });
+  }
+
+  public showCapturedScreen(count: number, total: number): void {
+    this.clearTimeouts();
+    this.isActive = true;
+    this.prepareOverlay();
+
+    const lines = this.buildCapturedLines(count, total);
+    this.typeLines(lines, 0, () => {
+      this.skipCallBack = null;
+      const id = window.setTimeout(() => this.mountCapturedButtons(count, total), 800);
+      this.timeoutIds.push(id);
+    });
+  }
+
+  private buildCapturedLines(count: number, total: number): string[] {
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    const damage = count * 1_500_000;
+    const dmgStr = damage.toLocaleString('es-AR', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
     const row = (label: string, value: string): string =>
-      `  ${label.padEnd(24)}${value}`;
+      `  ${label.padEnd(26)}${value}`;
+
+    const grade =
+      count === total ? 'S — Operación perfecta'
+      : count >= 6    ? 'A — Gran éxito'
+      : count >= 4    ? 'B — Éxito parcial'
+      : count >= 1    ? 'C — Daño limitado'
+      :                 'F — Sin archivos cifrados';
 
     return [
-      'Misión completada.',
-      'Encontraste acceso hacia la red interna.',
-      'El reconocimiento inicial fue exitoso.',
+      'EL ANTIVIRUS TE ATRAPÓ',
+      `Lograste cifrar ${count} de ${total} archivos (${pct}%).`,
       '',
-      '--- REPORTE DE INTRUSION ---',
-      row('estado del objetivo', 'cumplido'),
-      row('ruta encontrada', route),
-      row('tiempo empleado', `${min}:${sec}`),
-      row('errores de comando', `${mistakes} aprox.`),
+      '--- REPORTE BYTE-PLAGUE ---',
+      row('archivos cifrados',   `${count}/${total}`),
+      row('daño estimado',       dmgStr),
+      row('datos comprometidos', `${pct}%`),
+      row('calificacion',        grade),
       '',
-      'La fase de movimiento lateral queda habilitada para el nivel 2.',
-      'Una mala decision en comandos puede arruinar toda la operacion.',
+      `  BYTE-PLAGUE v0.1`,
+    ];
+  }
+
+  private buildWinLines(): string[] {
+    const gs = GameStateManager.getInstance();
+    const mistakes = Math.round(gs.alertLevel / 10);
+
+    const row = (label: string, value: string): string =>
+      `  ${label.padEnd(26)}${value}`;
+
+    const completedStage3 = gs.objectivesCompleted.includes('mission-complete');
+
+    if (completedStage3) {
+      return [
+        'BYTE-PLAGUE — OPERACION EXITOSA',
+        'Lograste cifrar los archivos criticos.',
+        'La empresa esta negociando el rescate.',
+        '',
+        '--- REPORTE DE INTRUSION ---',
+        row('vector de entrada',   'phishing → jperez'),
+        row('pivote interno',      'netops → svc_backup'),
+        row('privilegios max.',    'domain_admin'),
+        row('archivos cifrados',   '5 (database, backups, xlsx)'),
+        row('alertas generadas',   `${mistakes} aprox.`),
+        '',
+        '  BYTE-PLAGUE v0.1 — mision completada.',
+      ];
+    }
+
+    return [
+      'Mision completada.',
+      'Infiltracion exitosa en la red interna.',
+      '',
+      row('alertas generadas', `${mistakes} aprox.`),
     ];
   }
 
@@ -153,6 +252,37 @@ export class NarrativeScreen {
     }, { once: true });
     this.textContainer.appendChild(btn);
     requestAnimationFrame(() => { btn.style.opacity = '1'; });
+  }
+
+  private mountCapturedButtons(count: number, total: number): void {
+    const allEncrypted = count >= total;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;gap:1.2rem;justify-content:center;margin-top:2rem;flex-wrap:wrap;';
+
+    if (!allEncrypted) {
+      const retry = document.createElement('button');
+      retry.id = 'narrative-retry-btn';
+      retry.textContent = '[ Reintentar — Etapa 3 ]';
+      retry.addEventListener('click', () => {
+        GameConfig.flagAutostart();
+        window.location.reload();
+      }, { once: true });
+      wrapper.appendChild(retry);
+    }
+
+    const inicio = document.createElement('button');
+    inicio.id = allEncrypted ? 'narrative-retry-btn' : 'narrative-inicio-btn';
+    inicio.textContent = '[ Inicio ]';
+    inicio.addEventListener('click', () => {
+      SaveManager.clear();
+      window.location.reload();
+    }, { once: true });
+    wrapper.appendChild(inicio);
+
+    this.textContainer.appendChild(wrapper);
+    requestAnimationFrame(() => {
+      wrapper.querySelectorAll('button').forEach(b => { (b as HTMLElement).style.opacity = '1'; });
+    });
   }
 
   private prepareOverlay(): void {
@@ -206,13 +336,32 @@ export class NarrativeScreen {
   private readonly onLevelComplete = (event: Event): void => {
     const { level } = (event as CustomEvent<{ level: number }>).detail;
     const lines = (NARRATIVE_LEVEL[level] ?? ['Nivel completado.', 'Continuando...']) as string[];
-    this.show(lines, () => {});
+    GameStateManager.getInstance().setPaused(true);
+    this.show(lines, () => {
+      GameStateManager.getInstance().setPaused(false);
+      if (level === 3) {
+        // Signal the antivirus to start rushing now that the player has read the warning
+        window.dispatchEvent(new CustomEvent('chaseRushStart'));
+      }
+    });
   };
 
   private readonly onGameOver = (): void => {
-    // "Won" only when the game is fully complete (stage 3 objectives done).
-    // For now, game over is always a loss.
     this.showEndScreen(false);
+  };
+
+  private readonly onGameWon = (): void => {
+    this.showEndScreen(true);
+  };
+
+  private readonly onGameCaptured = (e: Event): void => {
+    const { count, total } = (e as CustomEvent<{ count: number; total: number }>).detail;
+    this.showCapturedScreen(count, total);
+  };
+
+  private readonly onAllFilesEncrypted = (e: Event): void => {
+    const { count, total } = (e as CustomEvent<{ count: number; total: number }>).detail;
+    this.showVictoryScreen(count, total);
   };
 
   private buildDOM(): { overlay: HTMLElement; textContainer: HTMLElement } {
@@ -295,6 +444,23 @@ export class NarrativeScreen {
       #narrative-retry-btn:hover {
         background: rgba(155, 255, 79, 0.12);
         color: #fff;
+      }
+      #narrative-inicio-btn {
+        display: block;
+        padding: 0.55rem 1.8rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.95rem;
+        color: rgba(155, 255, 79, 0.5);
+        background: transparent;
+        border: 1px solid rgba(155, 255, 79, 0.3);
+        cursor: pointer;
+        letter-spacing: 0.12em;
+        opacity: 0;
+        transition: opacity 0.6s ease, background 0.2s ease, color 0.2s ease;
+      }
+      #narrative-inicio-btn:hover {
+        background: rgba(155, 255, 79, 0.08);
+        color: #9bff4f;
       }
       #narrative-skip-hint {
         position: absolute;

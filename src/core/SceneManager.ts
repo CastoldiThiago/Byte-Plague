@@ -50,6 +50,13 @@ export class SceneManager {
     }
   };
 
+  private gameWonHandler = (): void => {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  };
+
   private gamePausedHandler = (): void => {
     this.isPaused = true;
     GameStateManager.getInstance().setPaused(true);
@@ -78,8 +85,24 @@ export class SceneManager {
 
   private readonly levelCompleteHandler = (event: Event): void => {
     const { level } = (event as CustomEvent<{ level: number }>).detail;
-    // Save checkpoint for the next stage so the player can retry from here if they fail
-    SaveManager.save(level + 1, GameStateManager.getInstance().objectivesCompleted);
+    if (level < 3) {
+      SaveManager.save(level + 1, GameStateManager.getInstance().objectivesCompleted);
+    }
+    // Level 3 complete = encryption-key unlocked → AntivirusAgent handles chase via onLevelComplete
+  };
+
+  private gameCapturedHandler = (): void => {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  };
+
+  private allFilesEncryptedHandler = (): void => {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
   };
 
   private doorUnlockedHandler = (event: Event): void => {
@@ -134,6 +157,9 @@ export class SceneManager {
     GameStateManager.getInstance();
     window.addEventListener('resize', this.resizeHandler);
     window.addEventListener('gameOver', this.gameOverHandler);
+    window.addEventListener('gameWon', this.gameWonHandler);
+    window.addEventListener('gameCaptured', this.gameCapturedHandler);
+    window.addEventListener('allFilesEncrypted', this.allFilesEncryptedHandler);
     window.addEventListener('doorUnlocked', this.doorUnlockedHandler);
     window.addEventListener('gamePaused', this.gamePausedHandler);
     window.addEventListener('gameResumed', this.gameResumedHandler);
@@ -160,13 +186,27 @@ export class SceneManager {
             this.worldBuilder.openDoor(doorId);
           }
           // Completa los objetivos de etapa 1; acceso-red-interna dispara levelComplete
-          // que activa el drone automáticamente via AntivirusAgent.onLevelComplete
           const gsm = GameStateManager.getInstance();
           gsm.completeObjective('dato-clientes');
           gsm.completeObjective('dato-soporte');
           gsm.completeObjective('acceso-red-interna');
-          // Teleport al inicio de etapa 2
           this.playerController.teleportTo(STAGE_SPAWNS[2] ?? this.worldBuilder.getSpawnPoint());
+        },
+        skipStage2: () => {
+          for (const doorId of STAGE_PREREQ_DOORS[3] ?? []) {
+            this.worldBuilder.openDoor(doorId);
+          }
+          const gsm = GameStateManager.getInstance();
+          gsm.completeObjective('dato-clientes');
+          gsm.completeObjective('dato-soporte');
+          gsm.completeObjective('acceso-red-interna');
+          gsm.completeObjective('network-map');
+          gsm.completeObjective('admin-password');
+          gsm.completeObjective('kerberos-ticket');
+          gsm.completeObjective('cracked-password');
+          gsm.completeObjective('acceso-dc');
+          gsm.completeObjective('domain-admin-access');
+          this.playerController.teleportTo(STAGE_SPAWNS[3] ?? this.worldBuilder.getSpawnPoint());
         },
       });
     }
@@ -188,6 +228,9 @@ export class SceneManager {
     }
     window.removeEventListener('resize', this.resizeHandler);
     window.removeEventListener('gameOver', this.gameOverHandler);
+    window.removeEventListener('gameWon', this.gameWonHandler);
+    window.removeEventListener('gameCaptured', this.gameCapturedHandler);
+    window.removeEventListener('allFilesEncrypted', this.allFilesEncryptedHandler);
     window.removeEventListener('doorUnlocked', this.doorUnlockedHandler);
     window.removeEventListener('gamePaused', this.gamePausedHandler);
     window.removeEventListener('gameResumed', this.gameResumedHandler);

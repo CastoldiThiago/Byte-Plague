@@ -5,17 +5,34 @@ export class HUDManager {
   private readonly alertStatus: HTMLElement;
   private readonly timerDisplay: HTMLElement;
   private readonly intervalId: number;
+  private chaseMode = false;
+  private encryptedCount = 0;
+  private totalFiles = 0;
 
   public constructor(alertFill: HTMLElement, alertStatus: HTMLElement, timerDisplay: HTMLElement) {
     this.alertFill = alertFill;
     this.alertStatus = alertStatus;
     this.timerDisplay = timerDisplay;
     this.intervalId = window.setInterval(this.tick, 500);
+    window.addEventListener('encryptionEnabled', this.onEncryptionEnabled);
+    window.addEventListener('fileEncrypted', this.onFileEncrypted);
   }
 
   public dispose(): void {
     clearInterval(this.intervalId);
+    window.removeEventListener('encryptionEnabled', this.onEncryptionEnabled);
+    window.removeEventListener('fileEncrypted', this.onFileEncrypted);
   }
+
+  private readonly onEncryptionEnabled = (): void => {
+    this.chaseMode = true;
+  };
+
+  private readonly onFileEncrypted = (e: Event): void => {
+    const { count, total } = (e as CustomEvent<{ count: number; total: number }>).detail;
+    this.encryptedCount = count;
+    this.totalFiles = total;
+  };
 
   private readonly tick = (): void => {
     const state = GameStateManager.getInstance();
@@ -41,6 +58,14 @@ export class HUDManager {
   }
 
   private updateTimer(secs: number, stage: number): void {
+    if (this.chaseMode) {
+      const frac = this.totalFiles > 0
+        ? Math.round((this.encryptedCount / this.totalFiles) * 100)
+        : 0;
+      this.timerDisplay.textContent = `⚠ CIFRADOS: ${this.encryptedCount}/${this.totalFiles}  (${frac}%)`;
+      this.timerDisplay.style.color = '#ff6b6b';
+      return;
+    }
     const min = Math.floor(secs / 60).toString().padStart(2, '0');
     const sec = (secs % 60).toString().padStart(2, '0');
     this.timerDisplay.textContent = `ETAPA ${stage} — ${min}:${sec}`;

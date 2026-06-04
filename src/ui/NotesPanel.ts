@@ -3,13 +3,42 @@ import { GameStateManager } from '../core/GameStateManager';
 interface Objective {
   id: string;
   label: string;
+  location?: string;
 }
 
-// Objetivos vagos: orientan sin decir exactamente qué hacer ni dónde
-const LEVEL1_OBJECTIVES: Objective[] = [
-  { id: 'dato-clientes',      label: 'Mapear la red corporativa' },
-  { id: 'dato-soporte',       label: 'Obtener credenciales de acceso' },
-  { id: 'acceso-red-interna', label: 'Infiltrarse en la red interna' },
+interface StageConfig {
+  number: number;
+  title: string;
+  objectives: Objective[];
+}
+
+const STAGE_CONFIGS: StageConfig[] = [
+  {
+    number: 1,
+    title: 'ETAPA 1 — Infiltración',
+    objectives: [
+      { id: 'dato-clientes',      label: 'Mapear la red corporativa',       location: '→ PC del empleado (Documents)' },
+      { id: 'dato-soporte',       label: 'Obtener credenciales de acceso',  location: '→ PC del empleado (Documents)' },
+      { id: 'acceso-red-interna', label: 'Infiltrarse en la red interna',   location: '→ Barrera al fondo del túnel' },
+    ],
+  },
+  {
+    number: 2,
+    title: 'ETAPA 2 — Escalada',
+    objectives: [
+      { id: 'network-map',         label: 'Reconocer la topología interna',     location: '→ Servidor compartido (izquierda)' },
+      { id: 'admin-password',      label: 'Localizar credenciales de admin',    location: '→ Scripts en /IT_backups' },
+      { id: 'cracked-password',    label: 'Comprometer cuenta de servicio',     location: '→ Terminal Kerberos (sala shares)' },
+      { id: 'domain-admin-access', label: 'Escalar a administrador de dominio', location: '→ Sala hexagonal (norte)' },
+    ],
+  },
+  {
+    number: 3,
+    title: 'ETAPA 3 — Cifrado',
+    objectives: [
+      { id: 'encryption-key', label: 'Generar clave RSA-2048', location: '→ Terminal en sala crítica (derecha)' },
+    ],
+  },
 ];
 
 export class NotesPanel {
@@ -26,11 +55,15 @@ export class NotesPanel {
     this.panel.classList.add('visible');
 
     window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('objectiveUnlocked', this.onObjectiveUnlocked);
+    window.addEventListener('levelComplete', this.onLevelComplete);
     document.getElementById('app')!.appendChild(this.panel);
   }
 
   public dispose(): void {
     window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('objectiveUnlocked', this.onObjectiveUnlocked);
+    window.removeEventListener('levelComplete', this.onLevelComplete);
     this.panel.remove();
   }
 
@@ -54,25 +87,58 @@ export class NotesPanel {
   }
 
   private renderObjectives(): void {
-    const completed = GameStateManager.getInstance().objectivesCompleted;
+    const gsm = GameStateManager.getInstance();
+    const completed = gsm.objectivesCompleted;
+    const currentLevel = gsm.currentLevel;
     this.objectivesEl.innerHTML = '';
 
-    for (const obj of LEVEL1_OBJECTIVES) {
-      const done = completed.includes(obj.id);
+    for (const stage of STAGE_CONFIGS) {
+      if (stage.number > currentLevel) break;
 
-      const item = document.createElement('div');
-      item.className = done ? 'notes-obj notes-obj--done' : 'notes-obj';
+      const isActive = stage.number === currentLevel;
+      const isDone   = stage.number < currentLevel;
 
-      const mark = document.createElement('span');
-      mark.className = 'notes-obj-mark';
-      mark.textContent = done ? '✓' : '○';
+      const stageEl = document.createElement('div');
+      stageEl.className = 'notes-stage' + (isDone ? ' notes-stage--done' : ' notes-stage--active');
 
-      const lbl = document.createElement('span');
-      lbl.textContent = obj.label;
+      const titleEl = document.createElement('div');
+      titleEl.className = 'notes-stage-title';
+      titleEl.textContent = (isDone ? '✓ ' : '') + stage.title;
+      stageEl.appendChild(titleEl);
 
-      item.appendChild(mark);
-      item.appendChild(lbl);
-      this.objectivesEl.appendChild(item);
+      if (isActive) {
+        for (const obj of stage.objectives) {
+          const done = completed.includes(obj.id);
+
+          const item = document.createElement('div');
+          item.className = done ? 'notes-obj notes-obj--done' : 'notes-obj';
+
+          const mark = document.createElement('span');
+          mark.className = 'notes-obj-mark';
+          mark.textContent = done ? '✓' : '○';
+
+          const content = document.createElement('div');
+          content.className = 'notes-obj-content';
+
+          const labelEl = document.createElement('span');
+          labelEl.className = 'notes-obj-label';
+          labelEl.textContent = obj.label;
+          content.appendChild(labelEl);
+
+          if (obj.location !== undefined && !done) {
+            const locEl = document.createElement('span');
+            locEl.className = 'notes-obj-location';
+            locEl.textContent = obj.location;
+            content.appendChild(locEl);
+          }
+
+          item.appendChild(mark);
+          item.appendChild(content);
+          stageEl.appendChild(item);
+        }
+      }
+
+      this.objectivesEl.appendChild(stageEl);
     }
   }
 
@@ -114,5 +180,13 @@ export class NotesPanel {
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (GameStateManager.getInstance().terminalOpen) return;
     if (event.code === 'KeyN') this.toggle();
+  };
+
+  private readonly onObjectiveUnlocked = (): void => {
+    this.renderObjectives();
+  };
+
+  private readonly onLevelComplete = (): void => {
+    this.renderObjectives();
   };
 }

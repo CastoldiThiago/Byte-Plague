@@ -1,5 +1,6 @@
 import { isDevMode } from './DevMode';
 import { SaveManager } from './SaveManager';
+import { GameConfig } from './GameConfig';
 
 export class GameStateManager {
   private static instance: GameStateManager | null = null;
@@ -11,6 +12,7 @@ export class GameStateManager {
   private _timerIntervalId: number | null = null;
   private _isPaused = false;
   private _terminalOpen = false;
+  private _isChasing = false;
 
   // Seconds allotted per stage. Adjust here to tune difficulty.
   public static readonly STAGE_TIMERS: Readonly<Record<number, number>> = {
@@ -22,16 +24,18 @@ export class GameStateManager {
   private static readonly LEVEL_OBJECTIVES: Readonly<Record<number, readonly string[]>> = {
     1: ['acceso-red-interna'],
     2: ['domain-admin-access'],
+    3: ['encryption-key'],
   };
 
   private constructor() {
+    const mult = GameConfig.timerMultiplier;
     const save = SaveManager.load();
     if (save !== null) {
       this._currentLevel = save.stage;
       this._objectivesCompleted = [...save.objectives];
-      this._timerSeconds = GameStateManager.STAGE_TIMERS[save.stage] ?? 180;
+      this._timerSeconds = Math.round((GameStateManager.STAGE_TIMERS[save.stage] ?? 180) * mult);
     } else {
-      this._timerSeconds = GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180;
+      this._timerSeconds = Math.round((GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180) * mult);
     }
 
     if (!isDevMode()) {
@@ -57,12 +61,18 @@ export class GameStateManager {
   public get timerSeconds(): number { return this._timerSeconds; }
   public get isPaused(): boolean { return this._isPaused; }
   public get terminalOpen(): boolean { return this._terminalOpen; }
+  public get isChasing(): boolean { return this._isChasing; }
   public setTerminalOpen(value: boolean): void { this._terminalOpen = value; }
+
+  /** Enters Stage 3 chase mode: suppresses alert/timer game-over; only playerCaught ends the game. */
+  public startChase(): void {
+    this._isChasing = true;
+  }
 
   public setPaused(paused: boolean): void { this._isPaused = paused; }
 
   private readonly tickTimer = (): void => {
-    if (this._isPaused) return;
+    if (this._isPaused || this._isChasing) return;
     this._timerSeconds -= 1;
     if (this._timerSeconds <= 0) {
       this._timerSeconds = 0;
@@ -79,7 +89,7 @@ export class GameStateManager {
   };
 
   public increaseAlert(amount: number): void {
-    if (this._isPaused) return;
+    if (this._isPaused || this._isChasing) return;
     this._alertLevel = Math.min(100, this._alertLevel + amount);
     if (this._alertLevel >= 100) {
       window.dispatchEvent(new CustomEvent('gameOver'));
@@ -105,7 +115,11 @@ export class GameStateManager {
         new CustomEvent('levelComplete', { detail: { level: this._currentLevel } }),
       );
       this._currentLevel++;
-      this._timerSeconds = GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180;
+      // Etapa 3 completed → chase mode starts; timer is frozen via tickTimer guard
+      if (this._currentLevel <= 3) {
+        const mult = GameConfig.timerMultiplier;
+        this._timerSeconds = Math.round((GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180) * mult);
+      }
     }
   }
 

@@ -11,13 +11,15 @@ export class DevPanel {
   private teleportCb: TeleportCallback;
   private toggleCollidersCb: ToggleCollidersCallback;
   private skipStageCb: SkipStageCallback;
+  private skipStage2Cb: SkipStageCallback;
   private lastPos = { x: 0, y: 0, z: 0 };
 
-  constructor(opts: { teleport: TeleportCallback; toggleColliders: ToggleCollidersCallback; skipStage: SkipStageCallback }) {
+  constructor(opts: { teleport: TeleportCallback; toggleColliders: ToggleCollidersCallback; skipStage: SkipStageCallback; skipStage2: SkipStageCallback }) {
     if (!isDevMode()) throw new Error('DevPanel only allowed in dev mode');
     this.teleportCb = opts.teleport;
     this.toggleCollidersCb = opts.toggleColliders;
     this.skipStageCb = opts.skipStage;
+    this.skipStage2Cb = opts.skipStage2;
 
     this.root = document.createElement('div');
     this.root.className = 'dev-panel-overlay';
@@ -36,6 +38,7 @@ export class DevPanel {
       </div>
       <div class="dev-panel-row">
         <button id="dev-skip-stage1">⏩ Skip Etapa 1</button>
+        <button id="dev-skip-stage2">⏩ Skip Etapa 2</button>
       </div>
       <div class="dev-pos-box">
         <span id="dev-pos-label">X 0.00  Y 0.00  Z 0.00</span>
@@ -108,6 +111,13 @@ export class DevPanel {
     if (target.id === 'dev-skip-stage1') {
       this.skipStageCb();
       target.textContent = '✓ Etapa 1 salteada';
+      (target as HTMLButtonElement).disabled = true;
+      return;
+    }
+
+    if (target.id === 'dev-skip-stage2') {
+      this.skipStage2Cb();
+      target.textContent = '✓ Etapa 2 salteada';
       (target as HTMLButtonElement).disabled = true;
       return;
     }
