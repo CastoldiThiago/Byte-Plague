@@ -1,4 +1,4 @@
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Difficulty = 'very-easy' | 'easy' | 'normal' | 'hard';
 
 export interface GameConfigData {
   virusName: string;
@@ -23,14 +23,22 @@ export const GameConfig = {
     _config = { ..._config, ...data };
   },
 
+  get isVeryEasy(): boolean { return _config.difficulty === 'very-easy'; },
+
   /** Multiplier applied to all stage timers. */
   get timerMultiplier(): number {
-    return _config.difficulty === 'easy' ? 1.5 : _config.difficulty === 'hard' ? 0.65 : 1.0;
+    if (_config.difficulty === 'very-easy') return 2.0;
+    if (_config.difficulty === 'easy')      return 1.5;
+    if (_config.difficulty === 'hard')      return 0.65;
+    return 1.0;
   },
 
   /** Multiplier applied to antivirus rush/chase speed. */
   get antivirusSpeedMultiplier(): number {
-    return _config.difficulty === 'easy' ? 0.65 : _config.difficulty === 'hard' ? 1.35 : 1.0;
+    if (_config.difficulty === 'very-easy') return 0.45;
+    if (_config.difficulty === 'easy')      return 0.65;
+    if (_config.difficulty === 'hard')      return 1.35;
+    return 1.0;
   },
 
   /** Mark next page load to skip the start screen (used by Reintentar). */

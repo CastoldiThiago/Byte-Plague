@@ -57,6 +57,10 @@ export class StartScreen {
             <div class="ss-field">
               <div class="ss-label">DIFICULTAD</div>
               <div id="ss-difficulty" class="ss-diff-group">
+                <button class="ss-diff-btn${GameConfig.difficulty === 'very-easy' ? ' active' : ''}" data-diff="very-easy">
+                  <span class="diff-name">MUY FÁCIL</span>
+                  <span class="diff-desc">Selección de opción / sin terminal</span>
+                </button>
                 <button class="ss-diff-btn${GameConfig.difficulty === 'easy'   ? ' active' : ''}" data-diff="easy">
                   <span class="diff-name">FÁCIL</span>
                   <span class="diff-desc">+50% tiempo / drone lento</span>

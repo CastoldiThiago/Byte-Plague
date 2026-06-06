@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { PlayerController } from '../gameplay/player/PlayerController';
 import { InteractionManager } from './InteractionManager';
 import { TerminalUI } from '../ui/TerminalUI';
+import { ChoiceUI } from '../ui/ChoiceUI';
+import { GameConfig } from './GameConfig';
 import { GameStateManager } from './GameStateManager';
 import { AudioManager } from './AudioManager';
 import { NarrativeScreen } from '../ui/NarrativeScreen';
@@ -34,7 +36,7 @@ export class SceneManager {
   private readonly worldBuilder: WorldBuilder;
   private readonly playerController: PlayerController;
   private readonly interactionManager: InteractionManager;
-  private readonly terminalUI: TerminalUI;
+  private readonly terminalUI: TerminalUI | ChoiceUI;
   private readonly narrativeScreen: NarrativeScreen | null;
   private readonly audioManager: AudioManager;
   private readonly antivirusAgent: AntivirusAgent;
@@ -147,7 +149,9 @@ export class SceneManager {
       collidables,
     });
 
-    this.terminalUI = new TerminalUI(() => this.requestPointerLock());
+    this.terminalUI = GameConfig.isVeryEasy
+      ? new ChoiceUI(() => this.requestPointerLock())
+      : new TerminalUI(() => this.requestPointerLock());
     this.interactionManager = new InteractionManager();
     this.narrativeScreen = isDevMode() ? null as any : new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);

@@ -127,7 +127,7 @@ export class GameStateManager {
     this._alertLevel = 0;
     this._currentLevel = 1;
     this._objectivesCompleted = [];
-    this._timerSeconds = GameStateManager.STAGE_TIMERS[1] ?? 180;
+    this._timerSeconds = Math.round((GameStateManager.STAGE_TIMERS[1] ?? 180) * GameConfig.timerMultiplier);
     this._isPaused = false;
     this.stopTimer();
     if (!isDevMode()) {

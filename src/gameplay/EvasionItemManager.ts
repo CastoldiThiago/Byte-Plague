@@ -40,6 +40,7 @@ export class EvasionItemManager {
   private readonly usesLeft: Record<string, number> = {};
   private static readonly MAX_USES = 2;
   private chaseMode = false;
+  private readonly activeIntervals: number[] = [];
 
   public constructor(agent: AntivirusAgent) {
     this.agent = agent;
@@ -60,6 +61,8 @@ export class EvasionItemManager {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('encryptionEnabled', this.onChaseStart);
     window.removeEventListener('keydown', this.onToggleKey);
+    for (const id of this.activeIntervals) window.clearInterval(id);
+    this.activeIntervals.length = 0;
     this.panel.remove();
   }
 
@@ -221,16 +224,18 @@ export class EvasionItemManager {
     }
 
     let remaining = seconds;
-    const tick = setInterval(() => {
+    const tick = window.setInterval(() => {
       remaining--;
       if (statusEl !== null) statusEl.textContent = `ACTIVO — ${remaining}s`;
       if (remaining <= 0) {
-        clearInterval(tick);
+        window.clearInterval(tick);
+        this.activeIntervals.splice(this.activeIntervals.indexOf(tick), 1);
         card.classList.remove('tool-card--active');
         if (statusEl !== null) statusEl.style.display = 'none';
         this.refreshSlot(item);
       }
     }, 1000);
+    this.activeIntervals.push(tick);
 
     this.markSlotActive(item, seconds);
   }
@@ -252,16 +257,18 @@ export class EvasionItemManager {
     slot.classList.add('active');
 
     let remaining = seconds;
-    const tick = setInterval(() => {
+    const tick = window.setInterval(() => {
       remaining--;
       const nameEl = slot.querySelector('.item-slot-name');
       if (nameEl !== null) nameEl.textContent = `${item.name} (${remaining}s)`;
       if (remaining <= 0) {
-        clearInterval(tick);
+        window.clearInterval(tick);
+        this.activeIntervals.splice(this.activeIntervals.indexOf(tick), 1);
         slot.classList.remove('active');
         if (nameEl !== null) nameEl.textContent = item.name;
       }
     }, 1000);
+    this.activeIntervals.push(tick);
   }
 
   // ── Styles ─────────────────────────────────────────────────────────

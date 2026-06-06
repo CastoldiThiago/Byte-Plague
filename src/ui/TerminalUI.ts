@@ -420,13 +420,21 @@ export class TerminalUI {
 
 // Helper: checks if a poiId has a scenario (used to decide alert logic)
 import { SCENARIOS } from '../data/scenarios';
+function normalizeCmd(cmd: string): string {
+  const parts = cmd.trim().split(/\s+/);
+  const name = parts[0] ?? '';
+  const rest = parts.slice(1).map(token =>
+    /^-[a-zA-Z]{2,}$/.test(token) ? '-' + [...token.slice(1)].sort().join('') : token
+  );
+  return [name, ...rest].join(' ');
+}
 function SCENARIOS_HAS(poiId: string, command: string | null): boolean {
   const s = SCENARIOS[poiId];
   if (s === undefined) return false;
   if (command === null) return true;
-  return s.correctCommand === command;
+  return normalizeCmd(s.correctCommand) === normalizeCmd(command);
 }
 function SCENARIOS_HAS_SECOND(poiId: string, command: string): boolean {
   const s = SCENARIOS[poiId];
-  return s !== undefined && s.secondCommand === command;
+  return s !== undefined && s.secondCommand !== undefined && normalizeCmd(s.secondCommand) === normalizeCmd(command);
 }

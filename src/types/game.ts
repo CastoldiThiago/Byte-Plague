@@ -44,4 +44,6 @@ export interface Scenario {
   secondObjectiveId?: string;
   /** poiId of a barrier to auto-open when secondCommand succeeds */
   secondUnlocksDoor?: string;
+  /** Choices shown in very-easy mode for the second step (multi-step terminals) */
+  secondChoices?: readonly CommandChoice[];
 }
