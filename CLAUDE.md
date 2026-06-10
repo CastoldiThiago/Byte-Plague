@@ -1,8 +1,10 @@
 # Byte Plague — Contexto del proyecto
 
+> **Proyecto académico:** simulador educativo de ciberseguridad ofensiva para enseñar conceptos de pentesting en un entorno ficticio de videojuego. Todo el contenido es ficticio y no representa ni instruye sobre ataques reales.
+
 ## Narrativa y diseño
 
-Byte Plague es un juego FPS de infiltración en primera persona donde el jugador es un virus ransomware que entró a una red corporativa mediante phishing. El objetivo es cifrar los archivos críticos de la empresa antes de ser detectado por el antivirus.
+Byte Plague es un juego FPS educativo de simulación de pentesting en primera persona. El jugador encarna un agente de red team que debe demostrar las vulnerabilidades de una red corporativa simulada. El objetivo es acceder a los archivos críticos del entorno ficticio antes de ser detectado por el sistema de monitoreo de seguridad (antivirus).
 
 El juego transcurre en un **único mapa** con estética sci-fi. No hay niveles separados: hay tres etapas que se desarrollan de forma continua a medida que el jugador desbloquea zonas del mismo entorno.
 
@@ -12,9 +14,9 @@ El juego transcurre en un **único mapa** con estética sci-fi. No hay niveles s
 
 > Los comandos listados en cada etapa son el **camino crítico** — los mínimos necesarios para avanzar. Cada zona puede tener comandos opcionales que otorgan lore, contexto narrativo o respuestas de error narrativas. El sistema acepta cualquier comando Unix válido y responde con un mensaje coherente (permiso denegado, archivo no encontrado, etc.).
 
-### Etapa 1 — Infiltración desde la PC del empleado (IMPLEMENTADA)
+### Etapa 1 — Acceso inicial desde el equipo comprometido (IMPLEMENTADA)
 
-El jugador spawnea en el túnel inferior. La PC del empleado (jperez) está en la habitación inferior izquierda. Hay que recolectar las credenciales VPN y la IP del servidor para poder conectarse a la red interna.
+El jugador spawnea en el túnel inferior. El equipo del usuario jperez está en la habitación inferior izquierda. Hay que recolectar los datos de acceso VPN y la IP del servidor para poder conectarse a la red interna.
 
 **Recorrido:** Spawn (túnel) → Oficina de jperez → Barrera hacia red interna
 
@@ -26,9 +28,9 @@ El jugador spawnea en el túnel inferior. La PC del empleado (jperez) está en l
 
 **Terminales opcionales / ítems:** pc-1 (`netstat -an` o `-na` → otorga `item-firewall-rule`), pc-2 (`ps aux`), pc-3 (`ping`), pc-4 (`top`); `archivo-procedimientos` (`cat procedimientos.md` → otorga `item-traffic-spoof`)
 
-### Etapa 2 — Escalada de privilegios (IMPLEMENTADA)
+### Etapa 2 — Escalada de permisos (IMPLEMENTADA)
 
-El jugador opera en la red interna como `netops`. Al cruzar la barrera de red interna el drone del antivirus aparece en escena. Necesita credenciales de domain_admin para acceder a los archivos críticos.
+El jugador opera en la red interna como `netops`. Al cruzar la barrera de red interna el agente de monitoreo (drone) aparece en escena. Necesita permisos de domain_admin para acceder a los archivos críticos.
 
 **Recorrido:** Pasillo central → Servidor compartido `/shares` (hab. izquierda) → Controlador de dominio (sala hexagonal)
 
@@ -46,9 +48,9 @@ El jugador opera en la red interna como `netops`. Al cruzar la barrera de red in
 7. `net group "Domain Admins" /domain` en terminal DC → confirma existencia de domain_admin (lore)
 8. `su domain_admin` en misma terminal → requiere `admin-password` → otorga `domain-admin-access` → **puerta-critica se abre automáticamente**
 
-### Etapa 3 — Cifrado de archivos críticos (IMPLEMENTADA)
+### Etapa 3 — Acceso y marcado de archivos críticos (IMPLEMENTADA)
 
-El jugador tiene privilegios de domain_admin. Al activar el cifrado el drone entra en modo persecución máxima. El jugador debe cifrar la mayor cantidad de archivos posible antes de ser atrapado.
+El jugador tiene privilegios de domain_admin. Al iniciar el proceso de auditoría el agente de monitoreo entra en modo persecución máxima. El jugador debe marcar la mayor cantidad de archivos como comprometidos antes de ser detectado.
 
 **Recorrido:** Sala de archivos críticos (sala grande derecha)
 
@@ -56,15 +58,15 @@ El jugador tiene privilegios de domain_admin. Al activar el cifrado el drone ent
 
 1. `encrypt` en `terminal-critical` → otorga `encryption-key` → **narrativa de alerta** → drone entra en modo chase desde sala central
 
-**Mecánica de cifrado:**
+**Mecánica de auditoría:**
 - Al completar `encrypt`, los 8 archivos físicos de la sala se vuelven interactuables
-- El jugador presiona **E** sobre cada archivo para cifrarlo (GlitchMaterial aplicado al modelo)
-- HUD muestra `⚠ CIFRADOS: N/8` en tiempo real
+- El jugador presiona **E** sobre cada archivo para marcarlo como comprometido (GlitchMaterial aplicado al modelo)
+- HUD muestra `⚠ AUDITADOS: N/8` en tiempo real (en código aparece como CIFRADOS por coherencia con el sistema)
 - Los ítems de evasión (1/2/3) quedan deshabilitados durante el chase
 
 **Condiciones de fin:**
-- **Drone atrapa al jugador** (`playerCaught` → `gameCaptured`) → pantalla de puntaje: N/8 archivos, daño estimado, calificación S/A/B/C/F; botones **Reintentar (checkpoint Etapa 3)** y **Inicio**
-- **Todos los archivos cifrados** (`allFilesEncrypted`) → pantalla de victoria: calificación S perfecta; solo botón **Inicio**
+- **Agente detecta al jugador** (`playerCaught` → `gameCaptured`) → pantalla de puntaje: N/8 archivos auditados, daño estimado, calificación S/A/B/C/F; botones **Reintentar (checkpoint Etapa 3)** y **Inicio**
+- **Todos los archivos auditados** (`allFilesEncrypted`) → pantalla de victoria: calificación S perfecta; solo botón **Inicio**
 
 **Comportamiento del drone en chase:**
 - Snapea a sala central, espera que la narrativa termine (`chaseRushStart`)
@@ -90,8 +92,8 @@ El jugador tiene privilegios de domain_admin. Al activar el cifrado el drone ent
 
 **Equivalencias narrativas:**
 
-- Spawn / túnel → punto de entrada, el virus acaba de ejecutarse
-- Oficina de jperez → `/home/jperez`, PC del empleado comprometido
+- Spawn / túnel → punto de entrada al entorno simulado
+- Oficina de jperez → `/home/jperez`, equipo del usuario jperez (punto de partida de la simulación)
 - Pasillo central → red local de la empresa, hub de tránsito
 - Servidor compartido → `/shares/IT_backups/`, carpetas internas del equipo de IT
 - Sala hexagonal → controlador de dominio, administra usuarios y permisos

@@ -1,6 +1,8 @@
 # Byte Plague
 
-Juego 3D educativo en primera persona desarrollado con Three.js + TypeScript.
+Simulador educativo de ciberseguridad en primera persona desarrollado con Three.js + TypeScript.
+
+Byte Plague es un videojuego de rol que permite al jugador experimentar, de forma completamente ficticia y controlada, los conceptos fundamentales del pentesting: reconocimiento, acceso inicial, escalada de permisos y exfiltración de datos. Su propósito es pedagógico: ilustrar por qué las organizaciones necesitan políticas de seguridad sólidas, mostrando desde la perspectiva del atacante cómo se encadenan vulnerabilidades comunes.
 
 Este repositorio contiene la base tecnica del MVP con foco en inmersion espacial, movimiento del jugador e interacciones iniciales con puntos de interes (POIs).
 
@@ -9,8 +11,8 @@ Este repositorio contiene la base tecnica del MVP con foco en inmersion espacial
 Construir una experiencia jugable educativa en primera persona que permita:
 
 - Navegacion fluida en entorno 3D.
-- Interaccion con puntos de interes educativos.
-- Ciclo de juego base estable para iterar contenido.
+- Interaccion con terminales simuladas y conceptos de seguridad ofensiva/defensiva.
+- Ciclo de juego base estable para iterar contenido educativo.
 
 ## Estado actual
 
