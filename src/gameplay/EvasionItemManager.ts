@@ -48,12 +48,12 @@ export class EvasionItemManager {
     const built = this.buildPanel();
     this.panel = built.panel;
     this.itemsContainer = built.container;
-    this.buildSlots(); // keep compact slots in NotesPanel
-
     window.addEventListener('objectiveUnlocked', this.onObjectiveUnlocked);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('encryptionEnabled', this.onChaseStart);
     window.addEventListener('keydown', this.onToggleKey);
+    window.addEventListener('narrativeShown', this.onNarrativeShown);
+    window.addEventListener('narrativeHidden', this.onNarrativeHidden);
   }
 
   public dispose(): void {
@@ -61,6 +61,8 @@ export class EvasionItemManager {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('encryptionEnabled', this.onChaseStart);
     window.removeEventListener('keydown', this.onToggleKey);
+    window.removeEventListener('narrativeShown', this.onNarrativeShown);
+    window.removeEventListener('narrativeHidden', this.onNarrativeHidden);
     for (const id of this.activeIntervals) window.clearInterval(id);
     this.activeIntervals.length = 0;
     this.panel.remove();
@@ -91,20 +93,6 @@ export class EvasionItemManager {
     return { panel, container };
   }
 
-  private buildSlots(): void {
-    const container = document.getElementById('item-slots');
-    if (container === null) return;
-    for (const item of ITEMS) {
-      const slot = document.createElement('div');
-      slot.className = 'item-slot locked';
-      slot.dataset.objective = item.objectiveId;
-      slot.innerHTML =
-        `<span class="item-slot-key">${item.key}</span>` +
-        `<span class="item-slot-name">???</span>`;
-      container.appendChild(slot);
-    }
-  }
-
   // ── Event handlers ─────────────────────────────────────────────────
 
   private readonly onObjectiveUnlocked = (e: Event): void => {
@@ -112,7 +100,6 @@ export class EvasionItemManager {
     const item = ITEMS.find(i => i.objectiveId === id);
     if (item === undefined) return;
     this.addToolCard(item);
-    this.refreshSlot(item);
 
     // Hide the "no tools yet" hint once first item arrives
     const hint = document.getElementById('tools-panel-hint');
@@ -120,22 +107,33 @@ export class EvasionItemManager {
   };
 
   private panelVisible = true;
+  private narrativeActive = false;
 
   private readonly onToggleKey = (e: KeyboardEvent): void => {
     if (GameStateManager.getInstance().terminalOpen) return;
     if (e.code !== 'KeyH') return;
     this.panelVisible = !this.panelVisible;
-    this.panel.style.display = this.panelVisible ? '' : 'none';
+    this.updatePanelVisibility();
   };
+
+  private readonly onNarrativeShown = (): void => {
+    this.narrativeActive = true;
+    this.updatePanelVisibility();
+  };
+
+  private readonly onNarrativeHidden = (): void => {
+    this.narrativeActive = false;
+    this.updatePanelVisibility();
+  };
+
+  private updatePanelVisibility(): void {
+    this.panel.style.display = (this.panelVisible && !this.narrativeActive) ? '' : 'none';
+  }
 
   private readonly onChaseStart = (): void => {
     this.chaseMode = true;
     this.panel.style.opacity = '0.35';
     this.panel.style.pointerEvents = 'none';
-    document.querySelectorAll<HTMLElement>('.item-slot').forEach(s => {
-      s.style.opacity = '0.35';
-      s.style.pointerEvents = 'none';
-    });
   };
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
@@ -232,40 +230,6 @@ export class EvasionItemManager {
         this.activeIntervals.splice(this.activeIntervals.indexOf(tick), 1);
         card.classList.remove('tool-card--active');
         if (statusEl !== null) statusEl.style.display = 'none';
-        this.refreshSlot(item);
-      }
-    }, 1000);
-    this.activeIntervals.push(tick);
-
-    this.markSlotActive(item, seconds);
-  }
-
-  // ── NotesPanel slot updates ────────────────────────────────────────
-
-  private refreshSlot(item: ItemDef): void {
-    const slot = document.querySelector<HTMLElement>(`[data-objective="${item.objectiveId}"]`);
-    if (slot === null) return;
-    slot.classList.remove('locked', 'active');
-    slot.classList.add('ready');
-    const nameEl = slot.querySelector('.item-slot-name');
-    if (nameEl !== null) nameEl.textContent = item.name;
-  }
-
-  private markSlotActive(item: ItemDef, seconds: number): void {
-    const slot = document.querySelector<HTMLElement>(`[data-objective="${item.objectiveId}"]`);
-    if (slot === null) return;
-    slot.classList.add('active');
-
-    let remaining = seconds;
-    const tick = window.setInterval(() => {
-      remaining--;
-      const nameEl = slot.querySelector('.item-slot-name');
-      if (nameEl !== null) nameEl.textContent = `${item.name} (${remaining}s)`;
-      if (remaining <= 0) {
-        window.clearInterval(tick);
-        this.activeIntervals.splice(this.activeIntervals.indexOf(tick), 1);
-        slot.classList.remove('active');
-        if (nameEl !== null) nameEl.textContent = item.name;
       }
     }, 1000);
     this.activeIntervals.push(tick);

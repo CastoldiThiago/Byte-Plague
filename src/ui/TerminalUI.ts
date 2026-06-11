@@ -2,7 +2,6 @@ import { CommandEngine } from '../gameplay/CommandEngine';
 import type { CommandResult } from '../gameplay/CommandEngine';
 import { GameStateManager } from '../core/GameStateManager';
 import { VirtualFS } from '../core/VirtualFS';
-import { NotesPanel } from './NotesPanel';
 import type { Scenario } from '../types/game';
 
 interface HistoryEntry {
@@ -21,7 +20,6 @@ export class TerminalUI {
   private readonly promptEl: HTMLElement;
   private readonly commandEngine = new CommandEngine();
   private readonly vfs = VirtualFS.getInstance();
-  private readonly notesPanel: NotesPanel;
   private readonly lockFn: () => void;
 
   private isOpen = false;
@@ -49,7 +47,6 @@ export class TerminalUI {
     this.historyEl = built.historyEl;
     this.inputEl = built.inputEl;
     this.promptEl = built.promptEl;
-    this.notesPanel = new NotesPanel();
 
     window.addEventListener('keydown', this.onGlobalKeyDown, { capture: true });
     window.addEventListener('mousedown', this.onGlobalMouseDown, { capture: true });
@@ -64,7 +61,6 @@ export class TerminalUI {
     window.removeEventListener('mousedown', this.onGlobalMouseDown, { capture: true });
     this.inputEl.removeEventListener('keydown', this.onInputKeyDown);
     window.removeEventListener('poiInteract', this.onPoiInteract);
-    this.notesPanel.dispose();
     this.panel.remove();
   }
 
@@ -210,7 +206,6 @@ export class TerminalUI {
     if (result.success) {
       if (result.objectiveId !== undefined) {
         GameStateManager.getInstance().completeObjective(result.objectiveId);
-        this.notesPanel.refreshObjectives();
       }
       if (SCENARIOS_HAS(this.currentPoiId, raw)) {
         // Advance VFS cwd to the room unlocked by this door

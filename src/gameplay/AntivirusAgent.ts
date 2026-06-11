@@ -26,6 +26,9 @@ const SPOOF_DURATION    = 20;   // seconds traffic_spoof sends drone away
 const STEALTH_DURATION  = 10;   // seconds stealth_mode disables detection
 const FIREWALL_DURATION = 15;   // seconds firewall_rule freezes drone movement
 
+const HUM_VOLUME   = 1;    // base volume for the drone's positional hum
+const ALERT_VOLUME = 0.9;  // base volume for the one-shot alert cue
+
 // ── Patrol waypoints ─────────────────────────────────────────────────────
 // Recorrido secuencial en loop. Coordenadas registradas con DevPanel (y≈2.18).
 // El drone gira su cono en cada punto durante el dwell antes de continuar.
@@ -197,6 +200,7 @@ export class AntivirusAgent {
 
     window.addEventListener('levelComplete', this.onLevelComplete);
     window.addEventListener('chaseRushStart', this.onChaseRushStart);
+    window.addEventListener('volumeChange', this.onVolumeChange);
   }
 
   // ── Public API ─────────────────────────────────────────────────────────
@@ -322,6 +326,7 @@ export class AntivirusAgent {
     this.disposed = true;
     window.removeEventListener('levelComplete', this.onLevelComplete);
     window.removeEventListener('chaseRushStart', this.onChaseRushStart);
+    window.removeEventListener('volumeChange', this.onVolumeChange);
 
     this.coneMesh.geometry.dispose();
     this.coneMaterial.dispose();
@@ -415,6 +420,12 @@ export class AntivirusAgent {
     if (!this.waitingForRush) return;
     this.waitingForRush = false;
     this.isRushing = true;
+  };
+
+  private readonly onVolumeChange = (): void => {
+    const mult = GameConfig.sfxVolumeEffective;
+    this.humAudio?.setVolume(HUM_VOLUME * mult);
+    this.alertAudio?.setVolume(ALERT_VOLUME * mult);
   };
 
   // ── Patrol helpers ─────────────────────────────────────────────────────
@@ -623,7 +634,7 @@ export class AntivirusAgent {
     this.humAudio.setMaxDistance(20);
     this.humAudio.setRolloffFactor(1);
     this.humAudio.setLoop(true);
-    this.humAudio.setVolume(1);
+    this.humAudio.setVolume(HUM_VOLUME * GameConfig.sfxVolumeEffective);
 
     loader.load(
       '/sounds/drone-hum.mp3',
@@ -640,7 +651,7 @@ export class AntivirusAgent {
     // One-shot alert — non-positional so it always reaches the player as a UI cue
     this.alertAudio = new THREE.Audio(this.audioListener);
     this.alertAudio.setLoop(false);
-    this.alertAudio.setVolume(0.9);
+    this.alertAudio.setVolume(ALERT_VOLUME * GameConfig.sfxVolumeEffective);
 
     loader.load(
       '/sounds/drone-alert.mp3',

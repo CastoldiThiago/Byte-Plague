@@ -135,7 +135,7 @@ export class ChoiceUI {
           const scenario = SCENARIOS[this.currentPoiId];
           if (scenario !== undefined) this.renderChoices(scenario, this.currentStep);
         }
-      }, 1200);
+      }, 2500);
     }
   }
 

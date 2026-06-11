@@ -3,6 +3,7 @@ import { PlayerController } from '../gameplay/player/PlayerController';
 import { InteractionManager } from './InteractionManager';
 import { TerminalUI } from '../ui/TerminalUI';
 import { ChoiceUI } from '../ui/ChoiceUI';
+import { NotesPanel } from '../ui/NotesPanel';
 import { GameConfig } from './GameConfig';
 import { GameStateManager } from './GameStateManager';
 import { AudioManager } from './AudioManager';
@@ -37,6 +38,7 @@ export class SceneManager {
   private readonly playerController: PlayerController;
   private readonly interactionManager: InteractionManager;
   private readonly terminalUI: TerminalUI | ChoiceUI;
+  private readonly notesPanel: NotesPanel;
   private readonly narrativeScreen: NarrativeScreen | null;
   private readonly audioManager: AudioManager;
   private readonly antivirusAgent: AntivirusAgent;
@@ -152,6 +154,7 @@ export class SceneManager {
     this.terminalUI = GameConfig.isVeryEasy
       ? new ChoiceUI(() => this.requestPointerLock())
       : new TerminalUI(() => this.requestPointerLock());
+    this.notesPanel = new NotesPanel();
     this.interactionManager = new InteractionManager();
     this.narrativeScreen = isDevMode() ? null as any : new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
@@ -247,6 +250,7 @@ export class SceneManager {
     this.playerController.dispose();
     this.interactionManager.dispose();
     this.terminalUI.dispose();
+    this.notesPanel.dispose();
     if (this.narrativeScreen) this.narrativeScreen.dispose();
     this.worldBuilder.dispose();
     GameStateManager.getInstance().dispose();

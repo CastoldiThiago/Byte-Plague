@@ -86,6 +86,7 @@ export class NarrativeScreen {
       this.overlay.classList.remove('visible');
       this.isActive = false;
       this.skipCallBack = null;
+      window.dispatchEvent(new CustomEvent('narrativeHidden'));
       onComplete();
     };
 
@@ -94,6 +95,7 @@ export class NarrativeScreen {
       const id = window.setTimeout(() => {
         this.overlay.classList.remove('visible');
         this.isActive = false;
+        window.dispatchEvent(new CustomEvent('narrativeHidden'));
         onComplete();
       }, END_PAUSE_MS);
       this.timeoutIds.push(id);
@@ -289,6 +291,7 @@ export class NarrativeScreen {
     this.textContainer.innerHTML = '';
     this.overlay.classList.add('visible');
     document.exitPointerLock();
+    window.dispatchEvent(new CustomEvent('narrativeShown'));
   }
 
   private typeLines(lines: string[], index: number, onAllDone: () => void): void {
