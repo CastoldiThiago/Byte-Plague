@@ -205,6 +205,12 @@ export class AntivirusAgent {
 
   // ── Public API ─────────────────────────────────────────────────────────
 
+  /** Posición XZ del drone para el minimapa, o null si todavía no está visible. */
+  public getMinimapPosition(): THREE.Vector3 | null {
+    if (this.droneGroup === null || !this.droneGroup.visible) return null;
+    return this.droneGroup.position;
+  }
+
   /**
    * Sends the drone to the Stage-1 distraction waypoints for SPOOF_DURATION seconds,
    * clearing the patrol zone around the player.

@@ -4,6 +4,7 @@ import { InteractionManager } from './InteractionManager';
 import { TerminalUI } from '../ui/TerminalUI';
 import { ChoiceUI } from '../ui/ChoiceUI';
 import { NotesPanel } from '../ui/NotesPanel';
+import { MinimapUI } from '../ui/MinimapUI';
 import { GameConfig } from './GameConfig';
 import { GameStateManager } from './GameStateManager';
 import { AudioManager } from './AudioManager';
@@ -39,6 +40,7 @@ export class SceneManager {
   private readonly interactionManager: InteractionManager;
   private readonly terminalUI: TerminalUI | ChoiceUI;
   private readonly notesPanel: NotesPanel;
+  private readonly minimap: MinimapUI;
   private readonly narrativeScreen: NarrativeScreen | null;
   private readonly audioManager: AudioManager;
   private readonly antivirusAgent: AntivirusAgent;
@@ -155,6 +157,7 @@ export class SceneManager {
       ? new ChoiceUI(() => this.requestPointerLock())
       : new TerminalUI(() => this.requestPointerLock());
     this.notesPanel = new NotesPanel();
+    this.minimap = new MinimapUI();
     this.interactionManager = new InteractionManager();
     this.narrativeScreen = isDevMode() ? null as any : new NarrativeScreen();
     this.audioManager = new AudioManager(this.camera);
@@ -251,6 +254,7 @@ export class SceneManager {
     this.interactionManager.dispose();
     this.terminalUI.dispose();
     this.notesPanel.dispose();
+    this.minimap.dispose();
     if (this.narrativeScreen) this.narrativeScreen.dispose();
     this.worldBuilder.dispose();
     GameStateManager.getInstance().dispose();
@@ -272,6 +276,8 @@ export class SceneManager {
       const p = this.camera.position;
       this.devPanel.setPosition(p.x, p.y, p.z);
     }
+
+    this.minimap.update(this.camera, this.antivirusAgent.getMinimapPosition());
 
     this.renderer.render(this.scene, this.camera);
     this.animationFrameId = requestAnimationFrame(this.animate);
