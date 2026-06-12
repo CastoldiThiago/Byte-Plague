@@ -111,15 +111,16 @@ export class GameStateManager {
       levelObjectives.every(obj => this._objectivesCompleted.includes(obj));
 
     if (allDone) {
-      window.dispatchEvent(
-        new CustomEvent('levelComplete', { detail: { level: this._currentLevel } }),
-      );
+      const completedLevel = this._currentLevel;
       this._currentLevel++;
       // Etapa 3 completed → chase mode starts; timer is frozen via tickTimer guard
       if (this._currentLevel <= 3) {
         const mult = GameConfig.timerMultiplier;
         this._timerSeconds = Math.round((GameStateManager.STAGE_TIMERS[this._currentLevel] ?? 180) * mult);
       }
+      window.dispatchEvent(
+        new CustomEvent('levelComplete', { detail: { level: completedLevel } }),
+      );
     }
   }
 

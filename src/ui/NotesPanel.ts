@@ -26,17 +26,17 @@ const STAGE_CONFIGS: StageConfig[] = [
     number: 2,
     title: 'ETAPA 2 — Escalada',
     objectives: [
-      { id: 'network-map',         label: 'Reconocer la topología interna',     location: '→ Servidor compartido (izquierda)' },
-      { id: 'admin-password',      label: 'Localizar credenciales de admin',    location: '→ Scripts en /IT_backups' },
-      { id: 'cracked-password',    label: 'Comprometer cuenta de servicio',     location: '→ Terminal Kerberos (sala shares)' },
-      { id: 'domain-admin-access', label: 'Escalar a administrador de dominio', location: '→ Sala hexagonal (norte)' },
+      { id: 'network-map',         label: 'Reconocer la topología interna',     location: '→ /shares/network_map' },
+      { id: 'admin-password',      label: 'Localizar credenciales de admin',    location: '→ /shares/sync_backup' },
+      { id: 'cracked-password',    label: 'Comprometer cuenta de servicio',     location: '→ Terminal Kerberos' },
+      { id: 'domain-admin-access', label: 'Escalar a administrador de dominio', location: '→ Domain Controller' },
     ],
   },
   {
     number: 3,
     title: 'ETAPA 3 — Cifrado',
     objectives: [
-      { id: 'encryption-key', label: 'Generar clave RSA-2048', location: '→ Terminal en sala crítica (derecha)' },
+      { id: 'encryption-key', label: 'Generar clave RSA-2048', location: '→ Terminal en sala crítica' },
     ],
   },
 ];

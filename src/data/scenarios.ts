@@ -378,8 +378,9 @@ export const SCENARIOS: Readonly<Record<string, Scenario | undefined>> = {
       '$a3f8c2d1e4b7a9f0[...truncado...]\n\n' +
       'Ticket listo. Ahora crackealo con: crack_ticket svc_backup.ticket',
     conclusion: 'Ticket Kerberos obtenido. Crackealo para extraer la contraseña de svc_backup.',
-    failOutput: '[ERROR] No se pudo obtener el ticket. Verificá la conexión a la red interna.',
+    failOutput: '[ERROR] No se pudo obtener el ticket. Necesitás identificar la cuenta de servicio primero — revisá el mapa de red y los scripts de backup en /shares.',
     objectiveId: 'kerberos-ticket',
+    requiredObjectives: ['network-map', 'admin-password'],
     basePath: '/shares',
     secondCommand: 'crack_ticket svc_backup.ticket',
     secondRequiredObjectives: ['kerberos-ticket'],

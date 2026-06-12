@@ -252,16 +252,27 @@ export class PlayerController {
     if (moveDist < 1e-6) return false;
 
     const direction = new THREE.Vector3(dx, 0, dz).normalize();
+    // Perpendicular en XZ, para sondear los costados del jugador
+    const perp = new THREE.Vector3(-direction.z, 0, direction.x);
+
     // Tres alturas: ojos, cintura, rodillas
     const yOffsets = [0, -0.7, -1.4];
+    // Centro + costados, para no pasar por grietas entre colliders
+    const lateralOffsets = [0, this.playerRadius * 0.8, -this.playerRadius * 0.8];
 
     for (const yOff of yOffsets) {
-      const origin = new THREE.Vector3(playerPos.x, playerPos.y + yOff, playerPos.z);
-      this.collisionRaycaster.set(origin, direction);
-      this.collisionRaycaster.near = 0.05;
-      this.collisionRaycaster.far = moveDist + this.playerRadius;
-      const hits = this.collisionRaycaster.intersectObjects(this.collidables, true);
-      if (hits.length > 0) return true;
+      for (const lateralOff of lateralOffsets) {
+        const origin = new THREE.Vector3(
+          playerPos.x + perp.x * lateralOff,
+          playerPos.y + yOff,
+          playerPos.z + perp.z * lateralOff,
+        );
+        this.collisionRaycaster.set(origin, direction);
+        this.collisionRaycaster.near = 0.05;
+        this.collisionRaycaster.far = moveDist + this.playerRadius;
+        const hits = this.collisionRaycaster.intersectObjects(this.collidables, true);
+        if (hits.length > 0) return true;
+      }
     }
 
     return false;

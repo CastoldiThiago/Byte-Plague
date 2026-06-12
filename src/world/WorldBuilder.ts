@@ -211,7 +211,7 @@ export class WorldBuilder {
       { x: -19.80, z: -26.97, rotY: Math.PI / 2,  poiId: 'puerta-shares',  width: 4 },
       { x:   1.05, z: -41.93, rotY: 0,             poiId: 'puerta-dc',      width: 5 },
       { x:  17.83, z: -13.46, rotY: Math.PI / 2,  poiId: 'puerta-critica', width: 5,
-        label: '[ACCESO CONCEDIDO] Privilegios de administrador de dominio detectados.' },
+        label: '[ACCESO RESTRINGIDO] Requiere privilegios de administrador de dominio.' },
     ];
 
     for (const d of doors) {

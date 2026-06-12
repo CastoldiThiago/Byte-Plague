@@ -17,11 +17,11 @@ function initGame(): void {
   app!.innerHTML = `
     <div id="game-root"></div>
     <div id="hud">
+      <p id="timer-display">TIEMPO: 03:00</p>
       <div id="alert-bar-track">
         <div id="alert-bar-fill"></div>
       </div>
       <p id="alert-status">Presencia encubierta</p>
-      <p id="timer-display">TIEMPO: 03:00</p>
     </div>
     <div id="crosshair" aria-hidden="true"></div>
   `;
