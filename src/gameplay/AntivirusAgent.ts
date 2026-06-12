@@ -643,7 +643,7 @@ export class AntivirusAgent {
     this.humAudio.setVolume(HUM_VOLUME * GameConfig.sfxVolumeEffective);
 
     loader.load(
-      '/sounds/drone-hum.mp3',
+      '/audio/antivirus_hum.mp3',
       (buffer) => {
         if (this.disposed) return;
         this.humAudio!.setBuffer(buffer);

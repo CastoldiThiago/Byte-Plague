@@ -9,6 +9,9 @@ interface SoundConfig {
   readonly loop: boolean;
   readonly volume: number;
   readonly category: 'music' | 'sfx';
+  // Loop sounds normally start playing as soon as their buffer loads.
+  // Set to false for loops that should wait for an explicit play() call.
+  readonly autoplay?: boolean;
 }
 
 const SOUND_CONFIGS: readonly SoundConfig[] = [
@@ -16,6 +19,7 @@ const SOUND_CONFIGS: readonly SoundConfig[] = [
   { name: 'alert',           url: '/audio/alert.wav',           loop: true,  volume: 0,   category: 'sfx'   },
   { name: 'command_success', url: '/audio/command_success.wav', loop: false, volume: 0.8, category: 'sfx'   },
   { name: 'command_fail',    url: '/audio/command_fail.mp3',    loop: false, volume: 0.8, category: 'sfx'   },
+  { name: 'chase_alarm',     url: '/audio/alarm-sound.mp3',     loop: true,  volume: 0.6, category: 'sfx', autoplay: false },
 ];
 
 export class AudioManager {
@@ -42,7 +46,7 @@ export class AudioManager {
         config.url,
         (buffer) => {
           sound.setBuffer(buffer);
-          if (config.loop) sound.play();
+          if (config.loop && config.autoplay !== false) sound.play();
         },
         undefined,
         () => { /* audio file not found — game continues without this sound */ },
@@ -54,6 +58,10 @@ export class AudioManager {
     window.addEventListener('gamePaused', this.onGamePaused);
     window.addEventListener('gameResumed', this.onGameResumed);
     window.addEventListener('volumeChange', this.onVolumeChange);
+    window.addEventListener('chaseRushStart', this.onChaseRushStart);
+    window.addEventListener('gameOver', this.onChaseEnd);
+    window.addEventListener('gameCaptured', this.onChaseEnd);
+    window.addEventListener('allFilesEncrypted', this.onChaseEnd);
 
     // Browser blocks AudioContext until a user gesture — resume on first click.
     document.addEventListener('click', () => {
@@ -100,6 +108,10 @@ export class AudioManager {
     window.removeEventListener('gamePaused', this.onGamePaused);
     window.removeEventListener('gameResumed', this.onGameResumed);
     window.removeEventListener('volumeChange', this.onVolumeChange);
+    window.removeEventListener('chaseRushStart', this.onChaseRushStart);
+    window.removeEventListener('gameOver', this.onChaseEnd);
+    window.removeEventListener('gameCaptured', this.onChaseEnd);
+    window.removeEventListener('allFilesEncrypted', this.onChaseEnd);
     for (const sound of this.sounds.values()) {
       if (sound.isPlaying) sound.stop();
     }
@@ -111,6 +123,8 @@ export class AudioManager {
   private readonly onCommandFail    = (): void => { this.play('command_fail'); };
   private readonly onGamePaused     = (): void => { void this.audioListener.context.suspend(); };
   private readonly onGameResumed    = (): void => { void this.audioListener.context.resume(); };
+  private readonly onChaseRushStart = (): void => { this.play('chase_alarm'); };
+  private readonly onChaseEnd       = (): void => { this.stop('chase_alarm'); };
   private readonly onVolumeChange   = (): void => {
     for (const name of this.sounds.keys()) this.applyVolume(name);
   };
