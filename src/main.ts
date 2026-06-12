@@ -17,8 +17,6 @@ function initGame(): void {
   app!.innerHTML = `
     <div id="game-root"></div>
     <div id="hud">
-      <p>Virus infiltrado por phishing</p>
-      <p>WASD moverse | E abrir terminal | Enter ejecutar | ° cerrar terminal | N objetivos | H herramientas | ESC pausar</p>
       <div id="alert-bar-track">
         <div id="alert-bar-fill"></div>
       </div>

@@ -435,9 +435,10 @@ body,
 /* --- Objectives panel (right side, toggle con N) --- */
 #notes-panel {
   position: absolute;
-  top: 8rem;
+  bottom: 1.6rem;
   right: 1.6rem;
   width: 260px;
+  max-height: 65vh;
   display: flex;
   flex-direction: column;
   background: rgba(6, 10, 16, 0.88);
@@ -451,6 +452,7 @@ body,
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.25s ease;
+  overflow-y: auto;
 }
 
 #notes-panel.visible {

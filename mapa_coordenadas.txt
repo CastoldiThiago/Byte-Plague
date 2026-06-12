@@ -1,0 +1,57 @@
+Pasillo Inicio hacia Desktop:
+Esquina trasera izquierda del pasillo hacia Desktop: -16.69, 1.70, 20.15
+Esquina trasera derecha del pasillo hacia desktop: -12.79, 1.70, 20.16
+Final pasillo inicio derecha (puerta Desktop): -12.72, 1.70, 14.17
+Final pasillo inicio izquierda (puerta Desktop): -16.67, 1.70, 14.51
+Pasillo hacia Documents:
+pasillo hacia sala Documents (pared izquierda, choque con puerta Documents):-23.60, 1.70, 13.93
+pasillo hacia sala Documents (pared derecha, choque con puerta Documents):-23.83, 1.70, 10.09
+Sala Documents:
+Esquina inferior derecha: -24.81, 1.70, 19.96
+Esquina inferior izuquierda: -34.03, 1.70, 19.68
+Esquina superior izquierda: -34.21, 1.70, 5.60
+Esquina superior derecha: -24.31, 1.70, 3.58
+Volviendo al pasillo de Desktop hacia la sala central:
+curva de la pared izquierda (primera esquina del pasillo hacia la izquierda, curva de aprox 45°): -24.31, 1.70, 3.58
+curva de la pared derecha hacia la izquierda (primer pliegue):-5.05, 1.70, 13.77
+Segundo pliegue pared izquierda (despues va recto hacia la puerta sala central): -1.18, 1.70, 2.51
+Segundo pliegue pared derecha (despues va recto hacia la puerta sala central): 2.94, 1.70, 5.40
+pared izquierda choque con puerta sala central: -1.16, 1.70, -11.69
+pared derecha choque con puerta sala central: 2.87, 1.70, -11.65
+Sala central:
+esquina inferior derecha: 9.43, 1.70, -12.79
+esquina superior derecha: 9.33, 1.70, -37.64
+esquina superior izquierda: -5.38, 1.70, -39.41
+esquina inferior izquierda: -7.14, 1.70, -13.56
+hacia sala shared:
+inicio pasillo hacia sala shared (pared izquierda): -7.83, 1.70, -25.44 
+inicio pasillo hacia sala shared (pared izquierda): -7.89, 1.70, -29.10
+Choque pared derecha con puerta shared: -19.50, 1.70, -28.79
+Choque pared izquierda con puerta shared: -19.46, 1.70, -24.83
+Sala shared:
+esquina superior derecha:-20.99, 1.70, -35.34
+esquina superior izquierda:-28.61, 1.70, -34.83
+esquina inferior izquierda: -30.42, 1.70, -13.84
+esquina inferior derecha: -20.62, 1.70, -12.90
+hacia sala Domain Controller:
+Puerta punta izq:-1.19, 1.70, -42.14
+puerta punta der:3.24, 1.70, -41.96
+sala DC:
+esquina inferior izquierda: -6.49, 1.70, -43.99
+esquina superior izquierda: -5.44, 1.70, -53.05
+esquina superior derecha:7.41, 1.70, -52.56
+esquina inferior derecha: 9.13, 1.70, -45.51
+Hacia sala crítica:
+puerta hacia pasillo en L (punta izq): 10.06, 1.70, -23.00
+puerta hacia pasillo en L (punta der): 9.94, 1.70, -19.36
+giro 1 hacia derecha pasillo pared derecha: 11.88, 1.70, -19.25
+giro 1 hacia derecha pasillo pared izquierda: 15.96, 1.70, -23.19
+giro 2 hacia puerta critica pared derecha: 11.87, 1.70, -11.60
+giro 2 hacia puerta critica pared izquierda: 16.20, 1.70, -15.69
+ingreso sala crítica (punta izq): 18.02, 1.70, -15.34
+ingreso sala crítica (punta der):17.88, 1.70, -11.48
+Sala crítica:
+esquina inferior izquierda: 18.92, 1.70, -5.28
+esquina inferior derecha: 35.34, 1.70, -5.13
+esquina superior derecha: 34.47, 1.70, -48.73
+esquina superior izquierda: 18.52, 1.70, -50.07

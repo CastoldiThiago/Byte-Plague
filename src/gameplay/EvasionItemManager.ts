@@ -76,7 +76,7 @@ export class EvasionItemManager {
 
     const header = document.createElement('div');
     header.id = 'tools-panel-header';
-    header.textContent = '> HERRAMIENTAS';
+    header.textContent = '> HERRAMIENTAS [H]';
 
     const container = document.createElement('div');
     container.id = 'tools-panel-items';
@@ -245,8 +245,7 @@ export class EvasionItemManager {
       #tools-panel {
         position: fixed;
         left: 0.8rem;
-        top: 50%;
-        transform: translateY(-50%);
+        bottom: 1.6rem;
         background: rgba(4, 14, 8, 0.88);
         border: 1px solid rgba(0, 200, 90, 0.28);
         color: #b8d8c0;
@@ -255,6 +254,8 @@ export class EvasionItemManager {
         z-index: 500;
         min-width: 210px;
         max-width: 240px;
+        max-height: 65vh;
+        overflow-y: auto;
         backdrop-filter: blur(3px);
         transition: opacity 0.4s;
       }
