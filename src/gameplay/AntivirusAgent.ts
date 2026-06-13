@@ -10,17 +10,13 @@ const DRONE_SCALE     = 0.005; // GLB model scale
 const MOVE_SPEED      = 3.0;   // units / second
 const REACH_DIST      = 0.40;  // switch to next waypoint at this XZ distance
 
-const CONE_RANGE       = 8;    // detection radius (units)
-const CONE_ANGLE_START = 60;   // initial full cone angle (degrees)
-const CONE_ANGLE_MAX   = 110;  // maximum full cone angle (degrees)
-const CONE_ANGLE_STEP  = 15;   // degrees added every CONE_STEP_SECS seconds
-const CONE_STEP_SECS   = 60;   // seconds per angle step
+const RANGE_START     = 9;     // initial detection radius (units)
+const RANGE_MAX       = 13;    // maximum detection radius (units)
+const RANGE_STEP      = 1;     // units added every RANGE_STEP_SECS seconds
+const RANGE_STEP_SECS = 60;    // seconds per radius step
+const CHASE_RANGE     = 14;    // detection radius during Etapa 3 chase
 
-const ALERT_RATE  = 15;        // alert points per second while player is in cone
-
-const DWELL_MIN = 2;           // minimum dwell at each waypoint (seconds)
-const DWELL_MAX = 5;           // maximum dwell at each waypoint (seconds)
-const LOOK_ANGULAR_SPEED = Math.PI * 0.75; // rad/s — ~1 vuelta completa en 2.7 s durante dwell
+const ALERT_RATE  = 15;        // alert points per second while player is in range
 
 const SPOOF_DURATION    = 20;   // seconds traffic_spoof sends drone away
 const STEALTH_DURATION  = 10;   // seconds stealth_mode disables detection
@@ -31,7 +27,7 @@ const ALERT_VOLUME = 0.9;  // base volume for the one-shot alert cue
 
 // ── Patrol waypoints ─────────────────────────────────────────────────────
 // Recorrido secuencial en loop. Coordenadas registradas con DevPanel (y≈2.18).
-// El drone gira su cono en cada punto durante el dwell antes de continuar.
+// El drone pausa en cada punto (dwell) sin girar — el rango de detección es circular.
 
 // Etapa 2 — pasillo central + sala /shares + túnel + sala Documents
 const WP_STAGE_2: readonly THREE.Vector3[] = [
@@ -119,27 +115,23 @@ export class AntivirusAgent {
   private droneTime = 0;
   private disposed = false;
 
-  // Vision cone — flat sector mesh projected on the floor
-  private readonly coneMesh: THREE.Mesh;
-  private readonly coneMaterial: THREE.MeshBasicMaterial;
-  private currentConeAngle = CONE_ANGLE_START;
+  // Vision range — flat circular mesh projected on the floor
+  private readonly visionMesh: THREE.Mesh;
+  private readonly visionMaterial: THREE.MeshBasicMaterial;
+  private currentRange = RANGE_START;
 
-  // Facing direction en XZ — se deriva de facingAngle (ángulo desde +Z en radianes)
+  // Facing direction en XZ — orienta el modelo del drone según su movimiento
   private readonly facingDir = new THREE.Vector3(0, 0, -1);
-  private facingAngle = Math.PI; // empieza mirando -Z (hacia el norte del mapa)
 
   // Active stage (1 = inactive / invisible, 2 = stage 2 patrol, 3 = full map)
   private stage = 1;
 
   // Normal patrol state
   private waypointIndex = 0;
-  private isDwelling = false;
-  private dwellElapsed = 0;
-  private dwellDuration = 0;
-  private activeTime = 0; // seconds since stage 2 activated (drives cone escalation)
+  private activeTime = 0; // seconds since stage 2 activated (drives range escalation)
 
   // Detection
-  private playerInCone = false;
+  private playerInRange = false;
 
   // trafficSpoof state
   private isSpoofed = false;
@@ -178,22 +170,22 @@ export class AntivirusAgent {
     this.camera = camera;
     this.audioListener = audioListener;
 
-    // Vision cone — flat sector on the XZ plane (y = 0.04 avoids z-fighting with floor)
-    this.coneMaterial = new THREE.MeshBasicMaterial({
+    // Vision range — flat circle on the XZ plane (y = 0.5 avoids z-fighting with floor)
+    this.visionMaterial = new THREE.MeshBasicMaterial({
       color: 0xff2222,
       transparent: true,
       opacity: 0.25,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
-    this.coneMesh = new THREE.Mesh(
-      this.buildConeGeometry(CONE_ANGLE_START, CONE_RANGE),
-      this.coneMaterial,
+    this.visionMesh = new THREE.Mesh(
+      this.buildCircleGeometry(RANGE_START),
+      this.visionMaterial,
     );
-    this.coneMesh.position.y = 0.5;  // por encima del piso del mapa
-    this.coneMesh.renderOrder = 1;
-    this.coneMesh.visible = false; // shown when stage 2 activates
-    scene.add(this.coneMesh);
+    this.visionMesh.position.y = 0.5;  // por encima del piso del mapa
+    this.visionMesh.renderOrder = 1;
+    this.visionMesh.visible = false; // shown when stage 2 activates
+    scene.add(this.visionMesh);
 
     this.initAudio();
     void this.loadDrone();
@@ -239,41 +231,41 @@ export class AntivirusAgent {
 
   /**
    * Freezes drone movement for FIREWALL_DURATION seconds.
-   * The cone colour changes to green while the effect is active.
+   * The vision range colour changes to green while the effect is active.
    */
   public firewallRule(): void {
     if (this.stage < 2 || this.isChasing) return;
     this.firewallActive = true;
     this.firewallElapsed = 0;
-    this.coneMaterial.color.set(0x00ff88);
+    this.visionMaterial.color.set(0x00ff88);
   }
 
   /**
-   * Disables cone detection for STEALTH_DURATION seconds.
-   * The cone colour changes to blue while the effect is active.
+   * Disables range detection for STEALTH_DURATION seconds.
+   * The vision range colour changes to blue while the effect is active.
    */
   public stealthMode(): void {
     if (this.stage < 2 || this.isChasing) return;
     this.stealthActive = true;
     this.stealthElapsed = 0;
-    this.coneMaterial.color.set(0x2266ff);
+    this.visionMaterial.color.set(0x2266ff);
   }
 
   public update(deltaTime: number): void {
     if (this.stage < 2 || this.droneGroup === null) return;
     if (GameStateManager.getInstance().isPaused) return;
 
-    // ── Cone angle escalation (solo fuera de chase) ────────────────────
+    // ── Range escalation (solo fuera de chase) ──────────────────────────
     if (!this.chaseModeActive) {
       this.activeTime += deltaTime;
-      const targetAngle = Math.min(
-        CONE_ANGLE_START + Math.floor(this.activeTime / CONE_STEP_SECS) * CONE_ANGLE_STEP,
-        CONE_ANGLE_MAX,
+      const targetRange = Math.min(
+        RANGE_START + Math.floor(this.activeTime / RANGE_STEP_SECS) * RANGE_STEP,
+        RANGE_MAX,
       );
-      if (targetAngle !== this.currentConeAngle) {
-        this.currentConeAngle = targetAngle;
-        this.coneMesh.geometry.dispose();
-        this.coneMesh.geometry = this.buildConeGeometry(this.currentConeAngle, CONE_RANGE);
+      if (targetRange !== this.currentRange) {
+        this.currentRange = targetRange;
+        this.visionMesh.geometry.dispose();
+        this.visionMesh.geometry = this.buildCircleGeometry(this.currentRange);
       }
     }
 
@@ -282,7 +274,7 @@ export class AntivirusAgent {
       this.firewallElapsed += deltaTime;
       if (this.firewallElapsed >= FIREWALL_DURATION) {
         this.firewallActive = false;
-        if (!this.stealthActive) this.coneMaterial.color.set(0xff2222);
+        if (!this.stealthActive) this.visionMaterial.color.set(0xff2222);
       }
     }
 
@@ -291,7 +283,7 @@ export class AntivirusAgent {
       this.stealthElapsed += deltaTime;
       if (this.stealthElapsed >= STEALTH_DURATION) {
         this.stealthActive = false;
-        this.coneMaterial.color.set(this.firewallActive ? 0x00ff88 : 0xff2222);
+        this.visionMaterial.color.set(this.firewallActive ? 0x00ff88 : 0xff2222);
       }
     }
 
@@ -319,13 +311,12 @@ export class AntivirusAgent {
 
     this.droneGroup.rotation.y = Math.atan2(this.facingDir.x, this.facingDir.z);
 
-    // ── Cone transform ─────────────────────────────────────────────────
-    this.coneMesh.position.x = this.droneGroup.position.x;
-    this.coneMesh.position.z = this.droneGroup.position.z;
-    this.coneMesh.rotation.y = Math.atan2(this.facingDir.x, this.facingDir.z);
+    // ── Vision range transform (circular — no rotation needed) ─────────
+    this.visionMesh.position.x = this.droneGroup.position.x;
+    this.visionMesh.position.z = this.droneGroup.position.z;
 
     // ── Detection (solo fuera de chase) ────────────────────────────────
-    if (!this.chaseModeActive) this.checkConeDetection(deltaTime);
+    if (!this.chaseModeActive) this.checkRangeDetection(deltaTime);
   }
 
   public dispose(): void {
@@ -334,9 +325,9 @@ export class AntivirusAgent {
     window.removeEventListener('chaseRushStart', this.onChaseRushStart);
     window.removeEventListener('volumeChange', this.onVolumeChange);
 
-    this.coneMesh.geometry.dispose();
-    this.coneMaterial.dispose();
-    this.scene.remove(this.coneMesh);
+    this.visionMesh.geometry.dispose();
+    this.visionMaterial.dispose();
+    this.scene.remove(this.visionMesh);
 
     if (this.humAudio !== null) {
       if (this.humAudio.isPlaying) this.humAudio.stop();
@@ -370,11 +361,10 @@ export class AntivirusAgent {
   public activateStage2(): void {
     this.stage = 2;
     this.waypointIndex = 0;
-    this.isDwelling = false;
 
     if (this.droneGroup !== null) {
       this.droneGroup.visible = true;
-      this.coneMesh.visible = true;
+      this.visionMesh.visible = true;
     }
     if (this.humAudio !== null && this.humReady && !this.humAudio.isPlaying) {
       this.humAudio.play();
@@ -398,19 +388,18 @@ export class AntivirusAgent {
       this.droneGroup.position.set(1.11, DRONE_BASE_Y, -21.40);
     }
 
-    this.isDwelling = false;
     this.isSpoofed = false;
     this.firewallActive = false;
     this.stealthActive = false;
     this.waitingForRush = true; // hold until narrative fires chaseRushStart
     this.rushWpIndex = 0;
 
-    // 360° detection cone
-    this.currentConeAngle = 360;
-    this.coneMesh.geometry.dispose();
-    this.coneMesh.geometry = this.buildConeGeometry(360, CONE_RANGE * 1.5);
-    this.coneMaterial.color.set(0xff0000);
-    this.coneMaterial.opacity = 0.40;
+    // Rango de detección ampliado durante la persecución
+    this.currentRange = CHASE_RANGE;
+    this.visionMesh.geometry.dispose();
+    this.visionMesh.geometry = this.buildCircleGeometry(CHASE_RANGE);
+    this.visionMaterial.color.set(0xff0000);
+    this.visionMaterial.opacity = 0.40;
 
     // Fallback for devMode (no narrative screen): start rush after delay.
     // 6s to avoid racing with any in-progress UI transitions.
@@ -444,18 +433,6 @@ export class AntivirusAgent {
     if (this.droneGroup === null) return;
     const waypoints = this.getActiveWaypoints();
 
-    if (this.isDwelling) {
-      this.dwellElapsed += deltaTime;
-      // Gira el cono mientras vigila el punto
-      this.facingAngle += LOOK_ANGULAR_SPEED * deltaTime;
-      this.facingDir.set(Math.sin(this.facingAngle), 0, Math.cos(this.facingAngle));
-      if (this.dwellElapsed >= this.dwellDuration) {
-        this.isDwelling = false;
-        this.waypointIndex = (this.waypointIndex + 1) % waypoints.length;
-      }
-      return;
-    }
-
     const target = waypoints[this.waypointIndex];
     if (target === undefined) return;
 
@@ -465,11 +442,7 @@ export class AntivirusAgent {
     const dist = Math.sqrt(dx * dx + dz * dz);
 
     if (dist < REACH_DIST) {
-      this.isDwelling = true;
-      this.dwellElapsed = 0;
-      this.dwellDuration = DWELL_MIN + Math.random() * (DWELL_MAX - DWELL_MIN);
-      // Congela el ángulo de llegada como punto de partida de la rotación
-      this.facingAngle = Math.atan2(this.facingDir.x, this.facingDir.z);
+      this.waypointIndex = (this.waypointIndex + 1) % waypoints.length;
       return;
     }
 
@@ -477,7 +450,6 @@ export class AntivirusAgent {
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);
-    this.facingAngle = Math.atan2(dx / dist, dz / dist);
   }
 
   // Index of the first waypoint INSIDE the critical room
@@ -509,7 +481,6 @@ export class AntivirusAgent {
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);
-    this.facingAngle = Math.atan2(dx / dist, dz / dist);
   }
 
   private readonly CATCH_DISTANCE = 2.2;
@@ -535,7 +506,6 @@ export class AntivirusAgent {
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);
-    this.facingAngle = Math.atan2(dx / dist, dz / dist);
   }
 
   private updateSpoof(deltaTime: number): void {
@@ -568,14 +538,13 @@ export class AntivirusAgent {
     dp.x += (dx / dist) * step;
     dp.z += (dz / dist) * step;
     this.facingDir.set(dx / dist, 0, dz / dist);
-    this.facingAngle = Math.atan2(dx / dist, dz / dist);
   }
 
   // ── Detection ──────────────────────────────────────────────────────────
 
-  private checkConeDetection(deltaTime: number): void {
+  private checkRangeDetection(deltaTime: number): void {
     if (this.stealthActive || this.droneGroup === null) {
-      this.playerInCone = false;
+      this.playerInRange = false;
       return;
     }
 
@@ -585,38 +554,26 @@ export class AntivirusAgent {
     const dz = cp.z - dp.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist > CONE_RANGE) {
-      this.playerInCone = false;
-      return;
-    }
-
-    const nx = dx / dist;
-    const nz = dz / dist;
-    const dot = this.facingDir.x * nx + this.facingDir.z * nz;
-    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-    const halfConeRad = (this.currentConeAngle * Math.PI) / 360;
-
-    if (angle <= halfConeRad) {
+    if (dist <= this.currentRange) {
       GameStateManager.getInstance().increaseAlert(ALERT_RATE * deltaTime);
-      if (!this.playerInCone) {
-        this.playerInCone = true;
+      if (!this.playerInRange) {
+        this.playerInRange = true;
         if (this.alertAudio !== null && this.alertAudio.buffer !== null && !this.alertAudio.isPlaying) {
           this.alertAudio.play();
         }
       }
     } else {
-      this.playerInCone = false;
+      this.playerInRange = false;
     }
   }
 
   // ── Geometry ───────────────────────────────────────────────────────────
 
-  /** Flat triangle-fan sector on the XZ plane. Default forward direction is +Z. */
-  private buildConeGeometry(angleDeg: number, range: number, segments = 20): THREE.BufferGeometry {
-    const halfRad = (angleDeg * Math.PI) / 360; // half the full angle in radians
-    const positions: number[] = [0, 0, 0];       // apex / center vertex
+  /** Flat circle (triangle fan) on the XZ plane, used to visualize the detection range. */
+  private buildCircleGeometry(range: number, segments = 32): THREE.BufferGeometry {
+    const positions: number[] = [0, 0, 0]; // center vertex
     for (let i = 0; i <= segments; i++) {
-      const a = -halfRad + (i / segments) * 2 * halfRad;
+      const a = (i / segments) * Math.PI * 2;
       positions.push(Math.sin(a) * range, 0, Math.cos(a) * range);
     }
     const indices: number[] = [];
@@ -694,7 +651,7 @@ export class AntivirusAgent {
       this.scene.add(this.droneGroup);
 
       if (this.stage >= 2) {
-        this.coneMesh.visible = true;
+        this.visionMesh.visible = true;
         if (this.humAudio !== null && this.humReady && !this.humAudio.isPlaying) {
           this.humAudio.play();
         }
