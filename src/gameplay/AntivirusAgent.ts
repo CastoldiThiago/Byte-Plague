@@ -231,13 +231,12 @@ export class AntivirusAgent {
 
   /**
    * Freezes drone movement for FIREWALL_DURATION seconds.
-   * The vision range colour changes to green while the effect is active.
+   * The vision range colour is left unchanged — only movement is affected.
    */
   public firewallRule(): void {
     if (this.stage < 2 || this.isChasing) return;
     this.firewallActive = true;
     this.firewallElapsed = 0;
-    this.visionMaterial.color.set(0x00ff88);
   }
 
   /**
@@ -274,7 +273,6 @@ export class AntivirusAgent {
       this.firewallElapsed += deltaTime;
       if (this.firewallElapsed >= FIREWALL_DURATION) {
         this.firewallActive = false;
-        if (!this.stealthActive) this.visionMaterial.color.set(0xff2222);
       }
     }
 
@@ -283,7 +281,7 @@ export class AntivirusAgent {
       this.stealthElapsed += deltaTime;
       if (this.stealthElapsed >= STEALTH_DURATION) {
         this.stealthActive = false;
-        this.visionMaterial.color.set(this.firewallActive ? 0x00ff88 : 0xff2222);
+        this.visionMaterial.color.set(0xff2222);
       }
     }
 

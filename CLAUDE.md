@@ -104,7 +104,7 @@ El jugador tiene privilegios de domain_admin. Al iniciar el proceso de auditorí
 | Ítem | Dónde se encuentra | Efecto | Duración |
 |------|-------------------|--------|----------|
 | `traffic_spoof.exe` | `cat procedimientos.md` en sala Documents (Etapa 1) | Envía el drone por el pasillo hasta la zona más lejana | 20 s |
-| `firewall_rule.sh` | `netstat` en `pc-1` / sala Documents (Etapa 1) | Congela al drone en su posición; su cono vira a verde | 15 s |
+| `firewall_rule.sh` | `netstat` en `pc-1` / sala Documents (Etapa 1) | Congela al drone en su posición (el cono mantiene su color) | 15 s |
 | `stealth_mode.bin` | `cat stealth_mode.bin` en `terminal-central` (pasillo central, Etapa 2) | El cono del drone no detecta al jugador | 10 s |
 
 Al encontrar un ítem se muestra en el **panel izquierdo persistente** (`#tools-panel`). Los ítems se activan con **1/2/3**. Cada ítem tiene **2 usos máximos**; al agotarse queda deshabilitado. En Etapa 3 (chase) los ítems se deshabilitan completamente. El panel se puede cerrar/abrir con **H**.

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { PlayerController } from '../gameplay/player/PlayerController';
 import { InteractionManager } from './InteractionManager';
 import { TerminalUI } from '../ui/TerminalUI';
@@ -48,6 +49,7 @@ export class SceneManager {
   private isPaused = false;
   private devPanel: DevPanel | null = null;
   private readonly evasionItems: EvasionItemManager;
+  private readonly stats: Stats | null;
 
   private gameOverHandler = (): void => {
     if (this.animationFrameId !== null) {
@@ -164,6 +166,16 @@ export class SceneManager {
     this.antivirusAgent = new AntivirusAgent(this.scene, this.camera, this.audioManager.audioListener);
 
     this.evasionItems = new EvasionItemManager(this.antivirusAgent);
+
+    if (isDevMode()) {
+      this.stats = new Stats();
+      this.stats.dom.style.top = 'auto';
+      this.stats.dom.style.bottom = '0px';
+      container.appendChild(this.stats.dom);
+    } else {
+      this.stats = null;
+    }
+
     GameStateManager.getInstance();
     window.addEventListener('resize', this.resizeHandler);
     window.addEventListener('gameOver', this.gameOverHandler);
@@ -247,6 +259,7 @@ export class SceneManager {
     window.removeEventListener('levelSpawnReady', this.levelSpawnReadyHandler);
     window.removeEventListener('levelComplete', this.levelCompleteHandler);
     if (this.devPanel) this.devPanel.dispose();
+    this.stats?.dom.remove();
     this.evasionItems.dispose();
     this.antivirusAgent.dispose();
     this.audioManager.dispose();
@@ -262,6 +275,7 @@ export class SceneManager {
   }
 
   private animate = (): void => {
+    this.stats?.begin();
     this.timer.update();
 
     if (!this.isPaused) {
@@ -280,6 +294,7 @@ export class SceneManager {
     this.minimap.update(this.camera, this.antivirusAgent.getMinimapPosition());
 
     this.renderer.render(this.scene, this.camera);
+    this.stats?.end();
     this.animationFrameId = requestAnimationFrame(this.animate);
   };
 
