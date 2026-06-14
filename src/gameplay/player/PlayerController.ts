@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { GameStateManager } from '../../core/GameStateManager';
+import { isMobileDevice } from '../../core/MobileMode';
 
 interface PlayerControllerOptions {
   camera: THREE.PerspectiveCamera;
@@ -48,6 +49,17 @@ export class PlayerController {
     down: false,
   };
 
+  private readonly touchInput: InputState = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+  };
+
+  private readonly mobileActive: boolean = isMobileDevice();
+
   private readonly moveSpeed = 6;
   private readonly playerRadius = 0.35;
   private currentTarget: THREE.Object3D | null = null;
@@ -74,7 +86,7 @@ export class PlayerController {
   }
 
   public update(deltaTime: number): void {
-    if (this.controls.isLocked) {
+    if (this.controls.isLocked || this.mobileActive) {
       this.computeMoveDirection(deltaTime);
       this.applyMovementWithCollision();
     }
@@ -83,7 +95,30 @@ export class PlayerController {
   }
 
   public requestLock(): void {
+    if (this.mobileActive) {
+      window.dispatchEvent(new CustomEvent('gameResumed'));
+      return;
+    }
     this.controls.lock();
+  }
+
+  /** Feeds movement input from the virtual joystick (mobile). */
+  public setTouchMovement(forward: boolean, backward: boolean, left: boolean, right: boolean): void {
+    this.touchInput.forward = forward;
+    this.touchInput.backward = backward;
+    this.touchInput.left = left;
+    this.touchInput.right = right;
+  }
+
+  /** Applies camera rotation from touch-drag look (mobile) — replicates PointerLockControls' YXZ euler with pitch clamp. */
+  public applyTouchLook(deltaYaw: number, deltaPitch: number): void {
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    euler.setFromQuaternion(this.camera.quaternion);
+    euler.y -= deltaYaw;
+    euler.x -= deltaPitch;
+    const PI_2 = Math.PI / 2;
+    euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+    this.camera.quaternion.setFromEuler(euler);
   }
 
   public dispose(): void {
@@ -116,6 +151,7 @@ export class PlayerController {
   }
 
   private readonly onRequestLock = (): void => {
+    if (this.mobileActive) return;
     if (GameStateManager.getInstance().terminalOpen) return;
     this.controls.lock();
   };
@@ -210,10 +246,10 @@ export class PlayerController {
       this.forwardDirection.normalize();
       this.rightDirection.crossVectors(this.forwardDirection, this.worldUp).normalize();
 
-      if (this.input.forward) this.moveDirection.add(this.forwardDirection);
-      if (this.input.backward) this.moveDirection.sub(this.forwardDirection);
-      if (this.input.left) this.moveDirection.sub(this.rightDirection);
-      if (this.input.right) this.moveDirection.add(this.rightDirection);
+      if (this.input.forward || this.touchInput.forward) this.moveDirection.add(this.forwardDirection);
+      if (this.input.backward || this.touchInput.backward) this.moveDirection.sub(this.forwardDirection);
+      if (this.input.left || this.touchInput.left) this.moveDirection.sub(this.rightDirection);
+      if (this.input.right || this.touchInput.right) this.moveDirection.add(this.rightDirection);
 
       if (this.moveDirection.lengthSq() > 0) {
         this.moveDirection.normalize().multiplyScalar(this.moveSpeed * deltaTime);

@@ -19,6 +19,7 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
+  touch-action: none;
 }
 
 #app {
@@ -430,6 +431,15 @@ body,
   #pause-menu-box {
     padding: 2rem 2rem;
   }
+}
+
+/* --- Mobile mode: deja espacio para los controles táctiles --- */
+body.mobile-mode #tools-panel {
+  bottom: 9.5rem;
+}
+
+body.mobile-mode #notes-panel {
+  bottom: 9.5rem;
 }
 
 /* --- Objectives panel (right side, toggle con N) --- */

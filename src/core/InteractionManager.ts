@@ -1,8 +1,11 @@
+import { isMobileDevice } from './MobileMode';
+
 export class InteractionManager {
   private readonly tooltip: HTMLElement;
   private activePoiId: string | null = null;
   private activePoiDistance = Number.POSITIVE_INFINITY;
   private readonly interactionRange = 2.4;
+  private readonly mobileActive = isMobileDevice();
 
   public constructor() {
     this.tooltip = this.createTooltip();
@@ -58,7 +61,7 @@ export class InteractionManager {
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.code !== 'KeyE') return;
     if (this.activePoiId === null) return;
-    if (document.pointerLockElement === null) return;
+    if (!this.mobileActive && document.pointerLockElement === null) return;
     if (this.activePoiDistance > this.interactionRange) return;
 
     window.dispatchEvent(new CustomEvent('poiInteract', { detail: { poiId: this.activePoiId } }));

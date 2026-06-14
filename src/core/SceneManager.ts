@@ -16,6 +16,8 @@ import { WorldBuilder } from '../world/WorldBuilder';
 import { AntivirusAgent } from '../gameplay/AntivirusAgent';
 import { SaveManager } from './SaveManager';
 import { EvasionItemManager } from '../gameplay/EvasionItemManager';
+import { isMobileDevice } from './MobileMode';
+import { TouchControls } from '../gameplay/player/TouchControls';
 
 // ── Save-point configuration ────────────────────────────────────────────────
 // Spawn positions for each stage (used when restoring from a checkpoint).
@@ -50,6 +52,7 @@ export class SceneManager {
   private devPanel: DevPanel | null = null;
   private readonly evasionItems: EvasionItemManager;
   private readonly stats: Stats | null;
+  private readonly touchControls: TouchControls | null;
 
   private gameOverHandler = (): void => {
     if (this.animationFrameId !== null) {
@@ -155,7 +158,7 @@ export class SceneManager {
       collidables,
     });
 
-    this.terminalUI = GameConfig.isVeryEasy
+    this.terminalUI = (GameConfig.isVeryEasy || isMobileDevice())
       ? new ChoiceUI(() => this.requestPointerLock())
       : new TerminalUI(() => this.requestPointerLock());
     this.notesPanel = new NotesPanel();
@@ -166,6 +169,11 @@ export class SceneManager {
     this.antivirusAgent = new AntivirusAgent(this.scene, this.camera, this.audioManager.audioListener);
 
     this.evasionItems = new EvasionItemManager(this.antivirusAgent);
+
+    this.touchControls = isMobileDevice() ? new TouchControls({
+      setMovement: (forward, backward, left, right) => this.playerController.setTouchMovement(forward, backward, left, right),
+      applyLook: (deltaYaw, deltaPitch) => this.playerController.applyTouchLook(deltaYaw, deltaPitch),
+    }) : null;
 
     if (isDevMode()) {
       this.stats = new Stats();
@@ -260,6 +268,7 @@ export class SceneManager {
     window.removeEventListener('levelComplete', this.levelCompleteHandler);
     if (this.devPanel) this.devPanel.dispose();
     this.stats?.dom.remove();
+    this.touchControls?.dispose();
     this.evasionItems.dispose();
     this.antivirusAgent.dispose();
     this.audioManager.dispose();
