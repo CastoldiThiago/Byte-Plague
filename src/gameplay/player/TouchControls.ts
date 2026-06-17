@@ -102,6 +102,15 @@ export class TouchControls {
     const root = document.createElement('div');
     root.id = 'touch-controls';
 
+    const portraitOverlay = document.createElement('div');
+    portraitOverlay.id = 'touch-portrait-overlay';
+    portraitOverlay.innerHTML = `
+      <div id="touch-portrait-icon">&#8635;</div>
+      <p>Girá el dispositivo</p>
+      <p id="touch-portrait-sub">El juego requiere modo horizontal</p>
+    `;
+    root.appendChild(portraitOverlay);
+
     const lookZone = document.createElement('div');
     lookZone.id = 'touch-look-zone';
 
@@ -341,9 +350,10 @@ export class TouchControls {
       #touch-interact-btn.visible { display: flex; }
 
       #touch-action-bar {
-        position: absolute; top: 1rem; right: 1rem;
+        position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
         display: flex; gap: 0.5rem;
         pointer-events: auto; z-index: 2;
+        white-space: nowrap;
       }
       #touch-action-bar button {
         min-width: 44px; min-height: 44px;
@@ -357,6 +367,46 @@ export class TouchControls {
       }
       #touch-action-bar button:active {
         background: rgba(74,246,38,0.25);
+      }
+
+      #touch-portrait-overlay {
+        display: none;
+        position: fixed; inset: 0; z-index: 100;
+        background: #060a12;
+        flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 1rem;
+        pointer-events: auto;
+        font-family: 'Courier New', monospace;
+        color: #4af626;
+        text-align: center;
+      }
+      #touch-portrait-icon {
+        font-size: 4rem;
+        animation: portrait-spin 2s ease-in-out infinite;
+      }
+      #touch-portrait-overlay p {
+        margin: 0;
+        font-size: 1.1rem;
+        letter-spacing: 0.08em;
+      }
+      #touch-portrait-sub {
+        font-size: 0.75rem !important;
+        color: rgba(74,246,38,0.5) !important;
+        letter-spacing: 0.05em !important;
+      }
+      @keyframes portrait-spin {
+        0%   { transform: rotate(0deg); }
+        40%  { transform: rotate(90deg); }
+        60%  { transform: rotate(90deg); }
+        100% { transform: rotate(90deg); }
+      }
+      @media (orientation: portrait) {
+        #touch-controls #touch-portrait-overlay { display: flex; }
+        #touch-controls #touch-look-zone,
+        #touch-controls #touch-joystick-zone,
+        #touch-controls #touch-interact-btn,
+        #touch-controls #touch-action-bar { visibility: hidden; }
       }
     `;
     document.head.appendChild(s);
