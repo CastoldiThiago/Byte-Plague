@@ -308,6 +308,28 @@ export class StartScreen {
         color: rgba(155,255,79,0.2); margin-top: 2rem;
         letter-spacing: 0.08em;
       }
+
+      /* Landscape mobile: viewport bajo (~360–520px de alto) */
+      @media (max-height: 520px) {
+        #ss-content {
+          padding: 0.7rem 1.2rem;
+          margin: 0.2rem auto;
+        }
+        #ss-header { margin-bottom: 0.4rem; }
+        #ss-title { font-size: clamp(1.4rem, 5vw, 2rem); }
+        #ss-version { display: none; }
+        #ss-tagline { font-size: 0.6rem; margin-top: 0.15rem; }
+        .ss-columns { gap: 1rem; margin-bottom: 0.6rem; }
+        .ss-section-label { margin-bottom: 0.5rem; }
+        .ss-field { margin-bottom: 0.5rem; }
+        .ss-input { padding: 0.35rem 0.6rem; font-size: 0.85rem; }
+        .ss-diff-btn { padding: 0.3rem 0.15rem; }
+        .diff-name { font-size: 0.7rem; }
+        .diff-desc { font-size: 0.55rem; }
+        #ss-actions { margin-top: 0.3rem; gap: 0.6rem; }
+        .ss-btn { padding: 0.45rem 1.4rem; font-size: 0.82rem; }
+        #ss-footer { display: none; }
+      }
     `;
     document.head.appendChild(style);
   }
